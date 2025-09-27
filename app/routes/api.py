@@ -10,6 +10,7 @@ from app.models import Scan, Customer, Vulnerability, Port, ComplianceIssue, Sys
 from app.modules.logger import get_logger
 from app.modules.pdf_generator import PDFGenerator
 from sqlalchemy.exc import NoResultFound
+from datetime import datetime, timedelta
 import json
 
 api_bp = Blueprint('api', __name__)
@@ -430,7 +431,6 @@ def api_stop_scan(scan_id):
 def reset_stuck_scans():
     """Reset scans that have been stuck in running state for too long"""
     try:
-        from datetime import datetime, timedelta
         timeout_threshold = datetime.utcnow() - timedelta(minutes=30)
         stuck_scans = Scan.query.filter(
             Scan.status == 'running',
