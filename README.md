@@ -347,7 +347,15 @@ For support and questions:
 ### Common Issues
 
 #### WeasyPrint Import Error
-If you get WeasyPrint import errors like `OSError: cannot load library 'pango-1.0-0'`, run the fix script:
+If you get WeasyPrint import errors like `OSError: cannot load library 'pango-1.0-0'`, try these solutions:
+
+**Option 1: Smart Package Detection (Recommended)**
+```bash
+chmod +x detect_packages.sh
+./detect_packages.sh
+```
+
+**Option 2: Standard Fix Script**
 ```bash
 chmod +x fix_weasyprint.sh
 ./fix_weasyprint.sh

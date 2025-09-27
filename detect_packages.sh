@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Quick fix script for WeasyPrint dependencies
-# Run this if you're getting WeasyPrint import errors
+# Package detection script for WeasyPrint dependencies
+# This script finds the correct package names for your system
 
 set -e
 
@@ -33,18 +33,56 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-print_status "Installing WeasyPrint system dependencies..."
+# Function to find package names
+find_package() {
+    local search_term="$1"
+    local package_name=""
+    
+    if command_exists apt-cache; then
+        package_name=$(apt-cache search "$search_term" | grep -E "^$search_term[^-]" | head -1 | awk '{print $1}')
+    elif command_exists yum; then
+        package_name=$(yum search "$search_term" 2>/dev/null | grep -E "^$search_term\." | head -1 | awk '{print $1}' | cut -d. -f1)
+    elif command_exists dnf; then
+        package_name=$(dnf search "$search_term" 2>/dev/null | grep -E "^$search_term\." | head -1 | awk '{print $1}' | cut -d. -f1)
+    fi
+    
+    echo "$package_name"
+}
+
+print_status "Detecting WeasyPrint package names for your system..."
 
 if command_exists apt-get; then
-    # Ubuntu/Debian
     print_status "Detected Ubuntu/Debian system"
+    
+    # Find the correct package names
+    pango_pkg=$(find_package "libpango-1.0-0")
+    if [ -z "$pango_pkg" ]; then
+        pango_pkg=$(find_package "libpango1.0-0")
+    fi
+    if [ -z "$pango_pkg" ]; then
+        pango_pkg="libpango-1.0-0"
+    fi
+    
+    gdk_pixbuf_pkg=$(find_package "libgdk-pixbuf-2.0-0")
+    if [ -z "$gdk_pixbuf_pkg" ]; then
+        gdk_pixbuf_pkg=$(find_package "libgdk-pixbuf2.0-0")
+    fi
+    if [ -z "$gdk_pixbuf_pkg" ]; then
+        gdk_pixbuf_pkg="libgdk-pixbuf-2.0-0"
+    fi
+    
+    print_status "Found packages:"
+    echo "  Pango: $pango_pkg"
+    echo "  GDK-Pixbuf: $gdk_pixbuf_pkg"
+    
+    print_status "Installing WeasyPrint dependencies..."
     sudo apt-get update
     
-    print_status "Installing core WeasyPrint dependencies..."
+    # Try to install with detected package names
     sudo apt-get install -y \
-        libpango-1.0-0 \
+        $pango_pkg \
         libpangoft2-1.0-0 \
-        libgdk-pixbuf-2.0-0 \
+        $gdk_pixbuf_pkg \
         libffi-dev \
         shared-mime-info \
         libcairo2 \
@@ -59,8 +97,9 @@ if command_exists apt-get; then
         libfreetype6-dev \
         libharfbuzz-dev \
         libfribidi-dev || {
-        print_warning "Some packages failed to install, trying alternative names..."
-        # Try alternative package names
+        print_warning "Some packages failed, trying alternative approach..."
+        
+        # Try installing development packages instead
         sudo apt-get install -y \
             libpango1.0-dev \
             libgdk-pixbuf2.0-dev \
@@ -77,12 +116,19 @@ if command_exists apt-get; then
             libharfbuzz-dev \
             libfribidi-dev
     }
-    print_success "WeasyPrint dependencies installed for Ubuntu/Debian"
     
-elif command_exists yum; then
-    # CentOS/RHEL/Fedora
+    print_success "WeasyPrint dependencies installed"
+    
+elif command_exists yum || command_exists dnf; then
     print_status "Detected CentOS/RHEL/Fedora system"
-    sudo yum install -y \
+    
+    if command_exists dnf; then
+        PKG_MGR="dnf"
+    else
+        PKG_MGR="yum"
+    fi
+    
+    sudo $PKG_MGR install -y \
         pango \
         gdk-pixbuf2 \
         libffi-devel \
@@ -93,17 +139,22 @@ elif command_exists yum; then
         python3-devel \
         libxml2-devel \
         libxslt-devel \
-        zlib-devel
-    print_success "WeasyPrint dependencies installed for CentOS/RHEL/Fedora"
+        zlib-devel \
+        libjpeg-devel \
+        libpng-devel \
+        freetype-devel \
+        harfbuzz-devel \
+        fribidi-devel
+    
+    print_success "WeasyPrint dependencies installed"
     
 elif command_exists brew; then
-    # macOS
     print_status "Detected macOS system"
     brew install pango gdk-pixbuf cairo libffi libxml2 libxslt
-    print_success "WeasyPrint dependencies installed for macOS"
+    print_success "WeasyPrint dependencies installed"
     
 else
-    print_error "Cannot detect package manager. Please install WeasyPrint dependencies manually:"
+    print_error "Cannot detect package manager. Please install WeasyPrint dependencies manually."
     print_error "Required packages: pango, gdk-pixbuf, cairo, libffi, libxml2, libxslt"
     exit 1
 fi

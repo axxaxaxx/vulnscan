@@ -169,24 +169,41 @@ pip install flask flask-sqlalchemy flask-socketio celery redis python-nmap beaut
 #### Error: `WeasyPrint could not import some external libraries` or `OSError: cannot load library 'pango-1.0-0'`
 
 **Solution:**
+
+**Option 1: Smart Package Detection (Recommended)**
+```bash
+# Run the smart package detection script
+chmod +x detect_packages.sh
+./detect_packages.sh
+```
+
+**Option 2: Standard Fix Script**
 ```bash
 # Run the WeasyPrint fix script
 chmod +x fix_weasyprint.sh
 ./fix_weasyprint.sh
+```
 
-# Or install manually:
+**Option 3: Manual Installation**
 
-# On Ubuntu/Debian:
+On Ubuntu/Debian:
+```bash
 sudo apt-get update
-sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info libcairo2 libcairo-gobject2 libpango1.0-0 libpangocairo-1.0-0 python3-dev libxml2-dev libxslt1-dev zlib1g-dev
+sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info libcairo2 libcairo-gobject2 libpangocairo-1.0-0 python3-dev libxml2-dev libxslt1-dev zlib1g-dev libjpeg-dev libpng-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev
+```
 
-# On CentOS/RHEL/Fedora:
-sudo yum install -y pango gdk-pixbuf2 libffi-devel shared-mime-info cairo cairo-gobject pango-devel python3-devel libxml2-devel libxslt-devel zlib-devel
+On CentOS/RHEL/Fedora:
+```bash
+sudo yum install -y pango gdk-pixbuf2 libffi-devel shared-mime-info cairo cairo-gobject pango-devel python3-devel libxml2-devel libxslt-devel zlib-devel libjpeg-devel libpng-devel freetype-devel harfbuzz-devel fribidi-devel
+```
 
-# On macOS:
+On macOS:
+```bash
 brew install pango gdk-pixbuf cairo libffi libxml2 libxslt
+```
 
-# Then reinstall WeasyPrint
+Then reinstall WeasyPrint:
+```bash
 pip uninstall -y weasyprint
 pip install weasyprint
 ```

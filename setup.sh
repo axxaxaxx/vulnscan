@@ -110,21 +110,47 @@ install_weasyprint_deps() {
     print_status "Installing WeasyPrint system dependencies..."
     
     if command_exists apt-get; then
-        # Ubuntu/Debian
-        sudo apt-get update && sudo apt-get install -y \
+        # Ubuntu/Debian - try different package name variations
+        sudo apt-get update
+        
+        # Try to install packages with fallback names
+        print_status "Installing core WeasyPrint dependencies..."
+        sudo apt-get install -y \
             libpango-1.0-0 \
             libpangoft2-1.0-0 \
-            libgdk-pixbuf2.0-0 \
+            libgdk-pixbuf-2.0-0 \
             libffi-dev \
             shared-mime-info \
             libcairo2 \
             libcairo-gobject2 \
-            libgdk-pixbuf2.0-0 \
-            libpango1.0-0 \
             libpangocairo-1.0-0 \
-            libgdk-pixbuf2.0-0 \
-            libffi-dev \
-            shared-mime-info
+            python3-dev \
+            libxml2-dev \
+            libxslt1-dev \
+            zlib1g-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libfreetype6-dev \
+            libharfbuzz-dev \
+            libfribidi-dev || {
+            print_warning "Some packages failed to install, trying alternative names..."
+            # Try alternative package names
+            sudo apt-get install -y \
+                libpango1.0-dev \
+                libgdk-pixbuf2.0-dev \
+                libcairo2-dev \
+                libffi-dev \
+                shared-mime-info \
+                python3-dev \
+                libxml2-dev \
+                libxslt1-dev \
+                zlib1g-dev \
+                libjpeg-dev \
+                libpng-dev \
+                libfreetype6-dev \
+                libharfbuzz-dev \
+                libfribidi-dev
+        }
         print_success "WeasyPrint dependencies installed"
     elif command_exists yum; then
         # CentOS/RHEL/Fedora
@@ -135,15 +161,24 @@ install_weasyprint_deps() {
             shared-mime-info \
             cairo \
             cairo-gobject \
-            pango-devel
+            pango-devel \
+            python3-devel \
+            libxml2-devel \
+            libxslt-devel \
+            zlib-devel \
+            libjpeg-devel \
+            libpng-devel \
+            freetype-devel \
+            harfbuzz-devel \
+            fribidi-devel
         print_success "WeasyPrint dependencies installed"
     elif command_exists brew; then
         # macOS
-        brew install pango gdk-pixbuf cairo libffi
+        brew install pango gdk-pixbuf cairo libffi libxml2 libxslt
         print_success "WeasyPrint dependencies installed"
     else
         print_warning "Cannot install WeasyPrint dependencies automatically. Please install them manually."
-        print_warning "Required packages: pango, gdk-pixbuf, cairo, libffi"
+        print_warning "Required packages: pango, gdk-pixbuf, cairo, libffi, libxml2, libxslt"
         return 1
     fi
 }
