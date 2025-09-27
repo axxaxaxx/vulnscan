@@ -444,63 +444,119 @@ def api_start_scan(scan_id):
         scan.started_at = db.func.now()
         db.session.commit()
         
-        # Start background tasks
+        # Execute scan synchronously using OS tools
         try:
-            from app.tasks.scan_tasks import run_nmap_scan, run_cve_lookup, run_osint_scan, run_compliance_check
+            logger.info(f"Starting synchronous scan execution for scan {scan_id}")
             
-            # Start nmap scan task
-            nmap_task = run_nmap_scan.delay(scan_id)
-            logger.info(f"Started nmap task for scan {scan_id}: {nmap_task.id}")
+            # Import scanning modules
+            from app.modules.nmap_scanner import NmapScanner
+            from app.modules.cve_lookup import CVELookup
+            from app.modules.osint_scanner import OSINTScanner
+            from app.modules.compliance_checker import ComplianceChecker
+            from app.models import Port, Vulnerability, ComplianceIssue
             
-            # Start other tasks if enabled
+            # Step 1: Nmap Scan
+            logger.info(f"Running Nmap scan on {scan.target}")
+            scan.progress = 10
+            db.session.commit()
+            
+            scanner = NmapScanner()
+            nmap_result = scanner.scan_target(scan.target)
+            
+            # Save port results to database
+            if nmap_result and 'ports' in nmap_result:
+                for port_data in nmap_result['ports']:
+                    port = Port(
+                        scan_id=scan_id,
+                        port_number=port_data.get('port'),
+                        protocol=port_data.get('protocol', 'tcp'),
+                        state=port_data.get('state', 'open'),
+                        service=port_data.get('service', 'unknown'),
+                        version=port_data.get('version', ''),
+                        banner=port_data.get('banner', '')
+                    )
+                    db.session.add(port)
+            
+            scan.progress = 40
+            db.session.commit()
+            
+            # Step 2: CVE Lookup (if enabled)
             if scan.enable_cve_lookup:
-                cve_task = run_cve_lookup.delay(scan_id)
-                logger.info(f"Started CVE lookup task for scan {scan_id}: {cve_task.id}")
+                logger.info(f"Running CVE lookup for scan {scan_id}")
+                try:
+                    cve_lookup = CVELookup()
+                    cve_results = cve_lookup.lookup_cves(scan.target)
+                    
+                    # Save CVE results to database
+                    if cve_results:
+                        for cve_data in cve_results:
+                            vulnerability = Vulnerability(
+                                scan_id=scan_id,
+                                cve_id=cve_data.get('cve_id'),
+                                title=cve_data.get('title', ''),
+                                description=cve_data.get('description', ''),
+                                severity=cve_data.get('severity', 'info'),
+                                cvss_score=cve_data.get('cvss_score', 0.0),
+                                references=cve_data.get('references', '')
+                            )
+                            db.session.add(vulnerability)
+                except Exception as cve_error:
+                    logger.warning(f"CVE lookup failed: {cve_error}")
             
+            scan.progress = 70
+            db.session.commit()
+            
+            # Step 3: OSINT Scan (if enabled)
             if scan.enable_osint:
-                osint_task = run_osint_scan.delay(scan_id)
-                logger.info(f"Started OSINT task for scan {scan_id}: {osint_task.id}")
+                logger.info(f"Running OSINT scan for scan {scan_id}")
+                try:
+                    osint_scanner = OSINTScanner()
+                    osint_results = osint_scanner.scan_target(scan.target)
+                    # OSINT results could be stored in a separate table or as scan metadata
+                except Exception as osint_error:
+                    logger.warning(f"OSINT scan failed: {osint_error}")
             
+            scan.progress = 85
+            db.session.commit()
+            
+            # Step 4: Compliance Check (if enabled)
             if scan.enable_compliance_check:
-                compliance_task = run_compliance_check.delay(scan_id)
-                logger.info(f"Started compliance check task for scan {scan_id}: {compliance_task.id}")
+                logger.info(f"Running compliance check for scan {scan_id}")
+                try:
+                    compliance_checker = ComplianceChecker()
+                    ports = Port.query.filter_by(scan_id=scan_id).all()
+                    compliance_results = compliance_checker.check_compliance(ports)
+                    
+                    # Save compliance issues to database
+                    if compliance_results:
+                        for issue_data in compliance_results:
+                            compliance_issue = ComplianceIssue(
+                                scan_id=scan_id,
+                                category=issue_data.get('category', ''),
+                                severity=issue_data.get('severity', 'medium'),
+                                description=issue_data.get('description', ''),
+                                recommendation=issue_data.get('recommendation', '')
+                            )
+                            db.session.add(compliance_issue)
+                except Exception as compliance_error:
+                    logger.warning(f"Compliance check failed: {compliance_error}")
             
-            logger.info(f"Started scan: {scan.name}")
+            # Mark scan as completed
+            scan.status = 'completed'
+            scan.progress = 100
+            scan.completed_at = db.func.now()
+            db.session.commit()
+            
+            logger.info(f"Completed scan: {scan.name}")
             return jsonify(scan.to_dict())
             
-        except Exception as task_error:
-            # If Celery tasks fail, try synchronous execution as fallback
-            logger.warning(f"Celery tasks failed for scan {scan_id}: {task_error}")
-            logger.info(f"Attempting synchronous scan execution for scan {scan_id}")
-            
-            try:
-                # Execute scan synchronously as fallback
-                from app.modules.nmap_scanner import NmapScanner
-                
-                # Create a simple scan result
-                scanner = NmapScanner()
-                result = scanner.scan_target(scan.target)
-                
-                # Update scan with results
-                scan.progress = 50
-                db.session.commit()
-                
-                # Simulate completion
-                scan.status = 'completed'
-                scan.progress = 100
-                scan.completed_at = db.func.now()
-                db.session.commit()
-                
-                logger.info(f"Completed synchronous scan: {scan.name}")
-                return jsonify(scan.to_dict())
-                
-            except Exception as sync_error:
-                # If even synchronous execution fails, mark as failed
-                logger.error(f"Failed to execute scan {scan_id} synchronously: {sync_error}")
-                scan.status = 'failed'
-                scan.completed_at = db.func.now()
-                db.session.commit()
-                return jsonify({'error': 'Failed to execute scan'}), 500
+        except Exception as scan_error:
+            # If scan execution fails, mark as failed
+            logger.error(f"Failed to execute scan {scan_id}: {scan_error}")
+            scan.status = 'failed'
+            scan.completed_at = db.func.now()
+            db.session.commit()
+            return jsonify({'error': f'Failed to execute scan: {str(scan_error)}'}), 500
     
     except Exception as e:
         db.session.rollback()
