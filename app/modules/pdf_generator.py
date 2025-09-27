@@ -1,454 +1,460 @@
 """
-PDF report generation module
-Handles generation of vulnerability scan reports in PDF format
+PDF Report Generator
+Handles generation of PDF reports for scans and other data
 """
 
-from io import BytesIO
-from typing import Dict, List, Any, Optional
-from datetime import datetime
+import os
 import json
-
-try:
-    from weasyprint import HTML, CSS
-    from weasyprint.text.fonts import FontConfiguration
-    WEASYPRINT_AVAILABLE = True
-except (ImportError, OSError) as e:
-    WEASYPRINT_AVAILABLE = False
-    WEASYPRINT_ERROR = str(e)
-
-try:
-    from reportlab.lib.pagesizes import letter, A4
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-    REPORTLAB_AVAILABLE = True
-except ImportError:
-    REPORTLAB_AVAILABLE = False
-
-from app.models import Scan, Customer, Vulnerability, Port, ComplianceIssue
+from datetime import datetime
 from app.modules.logger import get_logger
 
 logger = get_logger(__name__)
 
 class PDFGenerator:
-    """PDF report generation functionality"""
-    
     def __init__(self):
+        """Initialize PDF generator with available engines"""
+        self.engine = None
         self.available_engines = []
         
-        if WEASYPRINT_AVAILABLE:
+        # Try WeasyPrint first (preferred)
+        try:
+            from weasyprint import HTML, CSS
+            self.weasyprint_available = True
             self.available_engines.append('weasyprint')
-        else:
-            logger.warning(f"WeasyPrint not available: {WEASYPRINT_ERROR if 'WEASYPRINT_ERROR' in globals() else 'Import failed'}")
+            logger.info("WeasyPrint PDF engine available")
+        except ImportError as e:
+            self.weasyprint_available = False
+            logger.warning(f"WeasyPrint not available: {e}")
         
-        if REPORTLAB_AVAILABLE:
+        # Try ReportLab as fallback
+        try:
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            from reportlab.lib import colors
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            self.reportlab_available = True
             self.available_engines.append('reportlab')
+            logger.info("ReportLab PDF engine available")
+        except ImportError as e:
+            self.reportlab_available = False
+            logger.warning(f"ReportLab not available: {e}")
         
         if not self.available_engines:
-            error_msg = "No PDF generation engines available. "
-            if not WEASYPRINT_AVAILABLE and not REPORTLAB_AVAILABLE:
-                error_msg += "Install weasyprint (with system dependencies) or reportlab."
-            elif not WEASYPRINT_AVAILABLE:
-                error_msg += f"WeasyPrint failed: {WEASYPRINT_ERROR if 'WEASYPRINT_ERROR' in globals() else 'Import failed'}. Install system dependencies or use reportlab."
-            else:
-                error_msg += "Install reportlab."
-            raise Exception(error_msg)
+            raise ImportError("No PDF generation engines available. Please install WeasyPrint or ReportLab.")
         
-        logger.info(f"PDF generation engines available: {', '.join(self.available_engines)}")
-    
-    def generate_scan_report(self, scan_id: int, engine: str = None) -> bytes:
-        """
-        Generate PDF report for a scan
-        
-        Args:
-            scan_id: Scan ID to generate report for
-            engine: PDF engine to use (weasyprint or reportlab)
-            
-        Returns:
-            PDF content as bytes
-        """
+        # Use WeasyPrint if available, otherwise ReportLab
+        self.engine = 'weasyprint' if self.weasyprint_available else 'reportlab'
+        logger.info(f"Using PDF engine: {self.engine}")
+
+    def generate_scan_report(self, scan_data):
+        """Generate a comprehensive scan report PDF"""
         try:
-            # Get scan data
-            scan_data = self._get_scan_data(scan_id)
-            if not scan_data:
-                raise Exception(f"Scan {scan_id} not found")
-            
-            # Choose engine
-            if not engine:
-                engine = self.available_engines[0]
-            
-            if engine not in self.available_engines:
-                raise Exception(f"PDF engine {engine} not available")
-            
-            logger.info(f"Generating PDF report for scan {scan_id} using {engine}")
-            
-            if engine == 'weasyprint':
+            if self.engine == 'weasyprint':
                 return self._generate_with_weasyprint(scan_data)
-            elif engine == 'reportlab':
+            elif self.engine == 'reportlab':
                 return self._generate_with_reportlab(scan_data)
             else:
-                raise Exception(f"Unknown PDF engine: {engine}")
-                
+                raise ValueError(f"Unknown PDF engine: {self.engine}")
         except Exception as e:
-            logger.error(f"PDF generation failed for scan {scan_id}: {str(e)}")
+            logger.error(f"Error generating scan report: {str(e)}")
             raise
-    
-    def _get_scan_data(self, scan_id: int) -> Optional[Dict[str, Any]]:
-        """Get comprehensive scan data for report generation"""
-        try:
-            scan = Scan.query.get(scan_id)
-            if not scan:
-                return None
-            
-            customer = Customer.query.get(scan.customer_id)
-            vulnerabilities = Vulnerability.query.filter_by(scan_id=scan_id).all()
-            ports = Port.query.filter_by(scan_id=scan_id).all()
-            compliance_issues = ComplianceIssue.query.filter_by(scan_id=scan_id).all()
-            
-            # Categorize vulnerabilities by severity
-            vuln_by_severity = {
-                'critical': [v for v in vulnerabilities if v.severity == 'critical'],
-                'high': [v for v in vulnerabilities if v.severity == 'high'],
-                'medium': [v for v in vulnerabilities if v.severity == 'medium'],
-                'low': [v for v in vulnerabilities if v.severity == 'low'],
-                'info': [v for v in vulnerabilities if v.severity == 'info']
-            }
-            
-            # Categorize compliance issues by severity
-            compliance_by_severity = {
-                'critical': [c for c in compliance_issues if c.severity == 'critical'],
-                'high': [c for c in compliance_issues if c.severity == 'high'],
-                'medium': [c for c in compliance_issues if c.severity == 'medium'],
-                'low': [c for c in compliance_issues if c.severity == 'low']
-            }
-            
-            return {
-                'scan': scan.to_dict(),
-                'customer': customer.to_dict() if customer else None,
-                'vulnerabilities': [v.to_dict() for v in vulnerabilities],
-                'ports': [p.to_dict() for p in ports],
-                'compliance_issues': [c.to_dict() for c in compliance_issues],
-                'vuln_by_severity': {k: [v.to_dict() for v in v_list] for k, v_list in vuln_by_severity.items()},
-                'compliance_by_severity': {k: [c.to_dict() for c in c_list] for k, c_list in compliance_by_severity.items()},
-                'summary': self._generate_summary(scan, vulnerabilities, ports, compliance_issues)
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to get scan data: {str(e)}")
-            return None
-    
-    def _generate_summary(self, scan: Scan, vulnerabilities: List[Vulnerability], 
-                         ports: List[Port], compliance_issues: List[ComplianceIssue]) -> Dict[str, Any]:
-        """Generate executive summary"""
-        total_vulns = len(vulnerabilities)
-        total_ports = len([p for p in ports if p.state == 'open'])
-        total_compliance_issues = len(compliance_issues)
-        
-        vuln_counts = {
-            'critical': len([v for v in vulnerabilities if v.severity == 'critical']),
-            'high': len([v for v in vulnerabilities if v.severity == 'high']),
-            'medium': len([v for v in vulnerabilities if v.severity == 'medium']),
-            'low': len([v for v in vulnerabilities if v.severity == 'low']),
-            'info': len([v for v in vulnerabilities if v.severity == 'info'])
-        }
-        
-        compliance_counts = {
-            'critical': len([c for c in compliance_issues if c.severity == 'critical']),
-            'high': len([c for c in compliance_issues if c.severity == 'high']),
-            'medium': len([c for c in compliance_issues if c.severity == 'medium']),
-            'low': len([c for c in compliance_issues if c.severity == 'low'])
-        }
-        
-        # Calculate risk score (0-100)
-        risk_score = self._calculate_risk_score(vuln_counts, compliance_counts)
-        
-        return {
-            'total_vulnerabilities': total_vulns,
-            'total_ports': total_ports,
-            'total_compliance_issues': total_compliance_issues,
-            'vulnerability_counts': vuln_counts,
-            'compliance_counts': compliance_counts,
-            'risk_score': risk_score,
-            'risk_level': self._get_risk_level(risk_score),
-            'scan_duration': self._calculate_scan_duration(scan),
-            'generated_at': datetime.utcnow().isoformat()
-        }
-    
-    def _calculate_risk_score(self, vuln_counts: Dict[str, int], compliance_counts: Dict[str, int]) -> int:
-        """Calculate overall risk score (0-100)"""
-        score = 0
-        
-        # Vulnerability scoring
-        score += vuln_counts['critical'] * 25
-        score += vuln_counts['high'] * 15
-        score += vuln_counts['medium'] * 8
-        score += vuln_counts['low'] * 3
-        score += vuln_counts['info'] * 1
-        
-        # Compliance scoring
-        score += compliance_counts['critical'] * 20
-        score += compliance_counts['high'] * 10
-        score += compliance_counts['medium'] * 5
-        score += compliance_counts['low'] * 2
-        
-        return min(score, 100)
-    
-    def _get_risk_level(self, risk_score: int) -> str:
-        """Get risk level based on score"""
-        if risk_score >= 80:
-            return 'Critical'
-        elif risk_score >= 60:
-            return 'High'
-        elif risk_score >= 40:
-            return 'Medium'
-        elif risk_score >= 20:
-            return 'Low'
-        else:
-            return 'Very Low'
-    
-    def _calculate_scan_duration(self, scan: Scan) -> str:
-        """Calculate scan duration"""
-        if scan.started_at and scan.completed_at:
-            duration = scan.completed_at - scan.started_at
-            return str(duration)
-        elif scan.started_at:
-            duration = datetime.utcnow() - scan.started_at
-            return f"{str(duration)} (ongoing)"
-        else:
-            return "Not started"
-    
-    def _generate_with_weasyprint(self, scan_data: Dict[str, Any]) -> bytes:
+
+    def _generate_with_weasyprint(self, scan_data):
         """Generate PDF using WeasyPrint"""
-        try:
-            html_content = self._generate_html_content(scan_data)
-            css_content = self._generate_css_content()
-            
-            # Generate PDF
-            font_config = FontConfiguration()
-            html_doc = HTML(string=html_content)
-            css_doc = CSS(string=css_content, font_config=font_config)
-            
-            pdf_bytes = html_doc.write_pdf(stylesheets=[css_doc], font_config=font_config)
-            
-            logger.info("PDF generated successfully with WeasyPrint")
-            return pdf_bytes
-            
-        except Exception as e:
-            logger.error(f"WeasyPrint PDF generation failed: {str(e)}")
-            raise
-    
-    def _generate_with_reportlab(self, scan_data: Dict[str, Any]) -> bytes:
+        from weasyprint import HTML, CSS
+        
+        html_content = self._generate_html_report(scan_data)
+        css_content = self._get_css_styles()
+        
+        html_doc = HTML(string=html_content)
+        css_doc = CSS(string=css_content)
+        
+        return html_doc.write_pdf(stylesheets=[css_doc])
+
+    def _generate_with_reportlab(self, scan_data):
         """Generate PDF using ReportLab"""
-        try:
-            buffer = BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, 
-                                  topMargin=72, bottomMargin=18)
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        
+        # Create custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=12,
+            textColor=colors.darkblue
+        )
+        
+        # Build content
+        story = []
+        
+        # Title
+        story.append(Paragraph("Vulnerability Scan Report", title_style))
+        story.append(Spacer(1, 12))
+        
+        # Scan information
+        scan = scan_data['scan']
+        customer = scan_data['customer']
+        
+        scan_info = [
+            ['Scan Name:', scan.get('name', 'N/A')],
+            ['Target:', scan.get('target', 'N/A')],
+            ['Scan Type:', scan.get('scan_type', 'N/A')],
+            ['Status:', scan.get('status', 'N/A')],
+            ['Created:', scan.get('created_at', 'N/A')],
+            ['Completed:', scan.get('completed_at', 'N/A')],
+        ]
+        
+        if customer:
+            scan_info.extend([
+                ['Customer:', customer.get('name', 'N/A')],
+                ['Organization:', customer.get('organization', 'N/A')],
+                ['Email:', customer.get('email', 'N/A')]
+            ])
+        
+        scan_info.append(['Report Generated:', scan_data.get('generated_at', 'N/A')])
+        
+        scan_table = Table(scan_info, colWidths=[2*inch, 4*inch])
+        scan_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(scan_table)
+        story.append(Spacer(1, 20))
+        
+        # Ports section
+        ports = scan_data.get('ports', [])
+        if ports:
+            story.append(Paragraph("Open Ports", heading_style))
             
-            # Get styles
-            styles = getSampleStyleSheet()
-            title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=24,
-                spaceAfter=30,
-                alignment=TA_CENTER,
-                textColor=colors.darkblue
-            )
+            port_data = [['Port', 'Protocol', 'State', 'Service', 'Version']]
+            for port in ports:
+                port_data.append([
+                    str(port.get('port_number', '')),
+                    port.get('protocol', ''),
+                    port.get('state', ''),
+                    port.get('service', ''),
+                    port.get('version', '')
+                ])
             
-            heading_style = ParagraphStyle(
-                'CustomHeading',
-                parent=styles['Heading2'],
-                fontSize=16,
-                spaceAfter=12,
-                spaceBefore=20,
-                textColor=colors.darkblue
-            )
+            port_table = Table(port_data, colWidths=[0.8*inch, 0.8*inch, 0.8*inch, 1.5*inch, 2*inch])
+            port_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
             
-            # Build content
-            story = []
-            
-            # Title
-            story.append(Paragraph("Vulnerability Scan Report", title_style))
+            story.append(port_table)
             story.append(Spacer(1, 20))
+        
+        # Vulnerabilities section
+        vulnerabilities = scan_data.get('vulnerabilities', [])
+        if vulnerabilities:
+            story.append(Paragraph("Vulnerabilities", heading_style))
             
-            # Executive Summary
-            story.append(Paragraph("Executive Summary", heading_style))
-            summary = scan_data['summary']
-            summary_text = f"""
-            <b>Target:</b> {scan_data['scan']['target']}<br/>
-            <b>Scan Date:</b> {scan_data['scan']['created_at']}<br/>
-            <b>Risk Level:</b> {summary['risk_level']} ({summary['risk_score']}/100)<br/>
-            <b>Total Vulnerabilities:</b> {summary['total_vulnerabilities']}<br/>
-            <b>Open Ports:</b> {summary['total_ports']}<br/>
-            <b>Compliance Issues:</b> {summary['total_compliance_issues']}<br/>
-            """
-            story.append(Paragraph(summary_text, styles['Normal']))
-            story.append(Spacer(1, 20))
+            vuln_data = [['CVE ID', 'Severity', 'Title', 'CVSS Score']]
+            for vuln in vulnerabilities:
+                vuln_data.append([
+                    vuln.get('cve_id', 'N/A'),
+                    vuln.get('severity', 'N/A'),
+                    vuln.get('title', 'N/A')[:50] + '...' if len(vuln.get('title', '')) > 50 else vuln.get('title', 'N/A'),
+                    str(vuln.get('cvss_score', 'N/A'))
+                ])
             
-            # Vulnerability Summary Table
-            story.append(Paragraph("Vulnerability Summary", heading_style))
-            vuln_data = [
-                ['Severity', 'Count'],
-                ['Critical', str(summary['vulnerability_counts']['critical'])],
-                ['High', str(summary['vulnerability_counts']['high'])],
-                ['Medium', str(summary['vulnerability_counts']['medium'])],
-                ['Low', str(summary['vulnerability_counts']['low'])],
-                ['Info', str(summary['vulnerability_counts']['info'])]
-            ]
-            
-            vuln_table = Table(vuln_data)
+            vuln_table = Table(vuln_data, colWidths=[1.2*inch, 0.8*inch, 3*inch, 0.8*inch])
             vuln_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 14),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
+            
             story.append(vuln_table)
             story.append(Spacer(1, 20))
+        
+        # Compliance issues section
+        compliance_issues = scan_data.get('compliance_issues', [])
+        if compliance_issues:
+            story.append(Paragraph("Compliance Issues", heading_style))
             
-            # Detailed Vulnerabilities
-            if scan_data['vulnerabilities']:
-                story.append(Paragraph("Detailed Vulnerabilities", heading_style))
-                
-                for vuln in scan_data['vulnerabilities'][:10]:  # Limit to first 10
-                    vuln_text = f"""
-                    <b>{vuln['title']}</b><br/>
-                    <b>CVE:</b> {vuln['cve_id'] or 'N/A'}<br/>
-                    <b>Severity:</b> {vuln['severity'].upper()}<br/>
-                    <b>CVSS Score:</b> {vuln['cvss_score'] or 'N/A'}<br/>
-                    <b>Description:</b> {vuln['description'] or 'No description available'}<br/>
-                    <b>Remediation:</b> {vuln['remediation'] or 'No remediation available'}<br/>
-                    """
-                    story.append(Paragraph(vuln_text, styles['Normal']))
-                    story.append(Spacer(1, 10))
+            comp_data = [['Category', 'Severity', 'Description']]
+            for issue in compliance_issues:
+                comp_data.append([
+                    issue.get('category', 'N/A'),
+                    issue.get('severity', 'N/A'),
+                    issue.get('description', 'N/A')[:60] + '...' if len(issue.get('description', '')) > 60 else issue.get('description', 'N/A')
+                ])
             
-            # Compliance Issues
-            if scan_data['compliance_issues']:
-                story.append(PageBreak())
-                story.append(Paragraph("NIST Compliance Issues", heading_style))
-                
-                for issue in scan_data['compliance_issues'][:10]:  # Limit to first 10
-                    issue_text = f"""
-                    <b>{issue['nist_control']}: {issue['control_title']}</b><br/>
-                    <b>Severity:</b> {issue['severity'].upper()}<br/>
-                    <b>Issue:</b> {issue['issue_description']}<br/>
-                    <b>Recommendation:</b> {issue['recommendation']}<br/>
-                    """
-                    story.append(Paragraph(issue_text, styles['Normal']))
-                    story.append(Spacer(1, 10))
+            comp_table = Table(comp_data, colWidths=[1.5*inch, 0.8*inch, 3.5*inch])
+            comp_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
             
-            # Build PDF
-            doc.build(story)
-            pdf_bytes = buffer.getvalue()
-            buffer.close()
-            
-            logger.info("PDF generated successfully with ReportLab")
-            return pdf_bytes
-            
-        except Exception as e:
-            logger.error(f"ReportLab PDF generation failed: {str(e)}")
-            raise
-    
-    def _generate_html_content(self, scan_data: Dict[str, Any]) -> str:
+            story.append(comp_table)
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    def _generate_html_report(self, scan_data):
         """Generate HTML content for WeasyPrint"""
-        # This is a simplified HTML template
-        # In production, you would use a proper templating engine like Jinja2
-        html_template = f"""
+        scan = scan_data['scan']
+        customer = scan_data['customer']
+        vulnerabilities = scan_data.get('vulnerabilities', [])
+        ports = scan_data.get('ports', [])
+        compliance_issues = scan_data.get('compliance_issues', [])
+        
+        html = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <meta charset="utf-8">
+            <meta charset="UTF-8">
             <title>Vulnerability Scan Report</title>
         </head>
         <body>
-            <h1>Vulnerability Scan Report</h1>
-            <h2>Executive Summary</h2>
-            <p><strong>Target:</strong> {scan_data['scan']['target']}</p>
-            <p><strong>Scan Date:</strong> {scan_data['scan']['created_at']}</p>
-            <p><strong>Risk Level:</strong> {scan_data['summary']['risk_level']} ({scan_data['summary']['risk_score']}/100)</p>
-            <p><strong>Total Vulnerabilities:</strong> {scan_data['summary']['total_vulnerabilities']}</p>
-            <p><strong>Open Ports:</strong> {scan_data['summary']['total_ports']}</p>
-            <p><strong>Compliance Issues:</strong> {scan_data['summary']['total_compliance_issues']}</p>
+            <div class="header">
+                <h1>Vulnerability Scan Report</h1>
+                <p>Generated on: {scan_data.get('generated_at', 'N/A')}</p>
+            </div>
             
-            <h2>Vulnerabilities</h2>
-            <table>
-                <tr>
-                    <th>Title</th>
-                    <th>CVE</th>
-                    <th>Severity</th>
-                    <th>CVSS Score</th>
-                </tr>
+            <div class="section">
+                <h2>Scan Information</h2>
+                <table class="info-table">
+                    <tr><td><strong>Scan Name:</strong></td><td>{scan.get('name', 'N/A')}</td></tr>
+                    <tr><td><strong>Target:</strong></td><td>{scan.get('target', 'N/A')}</td></tr>
+                    <tr><td><strong>Scan Type:</strong></td><td>{scan.get('scan_type', 'N/A')}</td></tr>
+                    <tr><td><strong>Status:</strong></td><td>{scan.get('status', 'N/A')}</td></tr>
+                    <tr><td><strong>Created:</strong></td><td>{scan.get('created_at', 'N/A')}</td></tr>
+                    <tr><td><strong>Completed:</strong></td><td>{scan.get('completed_at', 'N/A')}</td></tr>
         """
         
-        for vuln in scan_data['vulnerabilities'][:20]:  # Limit to first 20
-            html_template += f"""
-                <tr>
-                    <td>{vuln['title']}</td>
-                    <td>{vuln['cve_id'] or 'N/A'}</td>
-                    <td>{vuln['severity'].upper()}</td>
-                    <td>{vuln['cvss_score'] or 'N/A'}</td>
-                </tr>
+        if customer:
+            html += f"""
+                    <tr><td><strong>Customer:</strong></td><td>{customer.get('name', 'N/A')}</td></tr>
+                    <tr><td><strong>Organization:</strong></td><td>{customer.get('organization', 'N/A')}</td></tr>
+                    <tr><td><strong>Email:</strong></td><td>{customer.get('email', 'N/A')}</td></tr>
             """
         
-        html_template += """
-            </table>
+        html += """
+                </table>
+            </div>
+        """
+        
+        # Ports section
+        if ports:
+            html += """
+            <div class="section">
+                <h2>Open Ports</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>State</th>
+                            <th>Service</th>
+                            <th>Version</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            for port in ports:
+                html += f"""
+                        <tr>
+                            <td>{port.get('port_number', '')}</td>
+                            <td>{port.get('protocol', '')}</td>
+                            <td>{port.get('state', '')}</td>
+                            <td>{port.get('service', '')}</td>
+                            <td>{port.get('version', '')}</td>
+                        </tr>
+                """
+            html += """
+                    </tbody>
+                </table>
+            </div>
+            """
+        
+        # Vulnerabilities section
+        if vulnerabilities:
+            html += """
+            <div class="section">
+                <h2>Vulnerabilities</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>CVE ID</th>
+                            <th>Severity</th>
+                            <th>Title</th>
+                            <th>CVSS Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            for vuln in vulnerabilities:
+                html += f"""
+                        <tr>
+                            <td>{vuln.get('cve_id', 'N/A')}</td>
+                            <td>{vuln.get('severity', 'N/A')}</td>
+                            <td>{vuln.get('title', 'N/A')}</td>
+                            <td>{vuln.get('cvss_score', 'N/A')}</td>
+                        </tr>
+                """
+            html += """
+                    </tbody>
+                </table>
+            </div>
+            """
+        
+        # Compliance issues section
+        if compliance_issues:
+            html += """
+            <div class="section">
+                <h2>Compliance Issues</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Severity</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            for issue in compliance_issues:
+                html += f"""
+                        <tr>
+                            <td>{issue.get('category', 'N/A')}</td>
+                            <td>{issue.get('severity', 'N/A')}</td>
+                            <td>{issue.get('description', 'N/A')}</td>
+                        </tr>
+                """
+            html += """
+                    </tbody>
+                </table>
+            </div>
+            """
+        
+        html += """
         </body>
         </html>
         """
         
-        return html_template
-    
-    def _generate_css_content(self) -> str:
-        """Generate CSS content for WeasyPrint"""
+        return html
+
+    def _get_css_styles(self):
+        """Get CSS styles for WeasyPrint"""
         return """
-        @page {
-            size: A4;
-            margin: 2cm;
-        }
-        
         body {
             font-family: Arial, sans-serif;
-            line-height: 1.6;
+            margin: 20px;
             color: #333;
         }
         
-        h1 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
         }
         
-        h2 {
-            color: #34495e;
-            margin-top: 30px;
+        .header h1 {
+            color: #007bff;
+            margin: 0;
         }
         
-        table {
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            color: #007bff;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        
+        .info-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
+            margin-bottom: 20px;
         }
         
-        th, td {
+        .info-table td {
+            padding: 8px;
             border: 1px solid #ddd;
+        }
+        
+        .info-table td:first-child {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            width: 30%;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .data-table th,
+        .data-table td {
             padding: 8px;
             text-align: left;
+            border: 1px solid #ddd;
         }
         
-        th {
-            background-color: #f2f2f2;
+        .data-table th {
+            background-color: #007bff;
+            color: white;
             font-weight: bold;
         }
         
-        .critical { color: #e74c3c; font-weight: bold; }
-        .high { color: #f39c12; font-weight: bold; }
-        .medium { color: #f1c40f; font-weight: bold; }
-        .low { color: #27ae60; }
-        .info { color: #3498db; }
+        .data-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .data-table tr:hover {
+            background-color: #e9ecef;
+        }
         """
