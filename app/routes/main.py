@@ -209,6 +209,11 @@ def monitoring():
                              recent_logs=[],
                              active_scans=[])
 
+@main_bp.route('/scan-types')
+def scan_types():
+    """Scan types management page"""
+    return render_template('scan_types.html')
+
 @main_bp.route('/reports')
 def reports():
     """Reports page"""

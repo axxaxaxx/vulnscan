@@ -6,7 +6,7 @@ Handles REST API endpoints
 from flask import Blueprint, request, jsonify, current_app
 from flask_socketio import emit
 from app import db
-from app.models import Scan, Customer, Vulnerability, Port, ComplianceIssue, SystemLog
+from app.models import Scan, Customer, Vulnerability, Port, ComplianceIssue, SystemLog, ScanType
 from app.modules.logger import get_logger
 from app.modules.pdf_generator import PDFGenerator
 from sqlalchemy.exc import NoResultFound
@@ -716,3 +716,137 @@ def get_logs():
     except Exception as e:
         logger.error(f"Error getting logs: {str(e)}")
         return jsonify({'error': 'Failed to get logs'}), 500
+
+# Scan Type API endpoints
+@api_bp.route('/scan-types', methods=['GET'])
+def get_scan_types():
+    """Get all scan types"""
+    try:
+        scan_types = ScanType.query.order_by(ScanType.created_at.desc()).all()
+        return jsonify([scan_type.to_dict() for scan_type in scan_types])
+    
+    except Exception as e:
+        logger.error(f"Error getting scan types: {str(e)}")
+        return jsonify({'error': 'Failed to get scan types'}), 500
+
+@api_bp.route('/scan-types', methods=['POST'])
+def create_scan_type():
+    """Create a new scan type"""
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('name'):
+            return jsonify({'error': 'Name is required'}), 400
+        
+        # Check if scan type with this name already exists
+        existing = ScanType.query.filter_by(name=data['name']).first()
+        if existing:
+            return jsonify({'error': 'Scan type with this name already exists'}), 400
+        
+        scan_type = ScanType(
+            name=data['name'],
+            port_range_type=data.get('port_range_type', 'all'),
+            custom_ports=data.get('custom_ports'),
+            nmap_arguments=data.get('nmap_arguments', '-sS -O -A'),
+            enable_searchsploit=data.get('enable_searchsploit', False),
+            enable_osint=data.get('enable_osint', False),
+            enable_cve_lookup=data.get('enable_cve_lookup', False),
+            enable_compliance_check=data.get('enable_compliance_check', False),
+            description=data.get('description', '')
+        )
+        
+        db.session.add(scan_type)
+        db.session.commit()
+        
+        logger.info(f"Created scan type: {scan_type.name}")
+        return jsonify(scan_type.to_dict()), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating scan type: {str(e)}")
+        return jsonify({'error': 'Failed to create scan type'}), 500
+
+@api_bp.route('/scan-types/<int:scan_type_id>', methods=['GET'])
+def get_scan_type(scan_type_id):
+    """Get a specific scan type"""
+    try:
+        scan_type = ScanType.query.get(scan_type_id)
+        if not scan_type:
+            return jsonify({'error': 'Scan type not found'}), 404
+        return jsonify(scan_type.to_dict())
+    
+    except Exception as e:
+        logger.error(f"Error getting scan type {scan_type_id}: {str(e)}")
+        return jsonify({'error': 'Failed to get scan type'}), 500
+
+@api_bp.route('/scan-types/<int:scan_type_id>', methods=['PUT'])
+def update_scan_type(scan_type_id):
+    """Update a scan type"""
+    try:
+        scan_type = ScanType.query.get(scan_type_id)
+        if not scan_type:
+            return jsonify({'error': 'Scan type not found'}), 404
+            
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Check if name is being changed and if it conflicts
+        if 'name' in data and data['name'] != scan_type.name:
+            existing = ScanType.query.filter_by(name=data['name']).first()
+            if existing:
+                return jsonify({'error': 'Scan type with this name already exists'}), 400
+        
+        if 'name' in data:
+            scan_type.name = data['name']
+        if 'port_range_type' in data:
+            scan_type.port_range_type = data['port_range_type']
+        if 'custom_ports' in data:
+            scan_type.custom_ports = data['custom_ports']
+        if 'nmap_arguments' in data:
+            scan_type.nmap_arguments = data['nmap_arguments']
+        if 'enable_searchsploit' in data:
+            scan_type.enable_searchsploit = data['enable_searchsploit']
+        if 'enable_osint' in data:
+            scan_type.enable_osint = data['enable_osint']
+        if 'enable_cve_lookup' in data:
+            scan_type.enable_cve_lookup = data['enable_cve_lookup']
+        if 'enable_compliance_check' in data:
+            scan_type.enable_compliance_check = data['enable_compliance_check']
+        if 'description' in data:
+            scan_type.description = data['description']
+        
+        db.session.commit()
+        
+        logger.info(f"Updated scan type: {scan_type.name}")
+        return jsonify(scan_type.to_dict())
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating scan type {scan_type_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update scan type'}), 500
+
+@api_bp.route('/scan-types/<int:scan_type_id>', methods=['DELETE'])
+def delete_scan_type(scan_type_id):
+    """Delete a scan type"""
+    try:
+        scan_type = ScanType.query.get(scan_type_id)
+        if not scan_type:
+            return jsonify({'error': 'Scan type not found'}), 404
+        
+        # Check if scan type is being used by any scans
+        scans_using_type = Scan.query.filter_by(scan_type=scan_type.name).count()
+        if scans_using_type > 0:
+            return jsonify({'error': f'Cannot delete scan type. It is being used by {scans_using_type} scan(s).'}), 400
+        
+        db.session.delete(scan_type)
+        db.session.commit()
+        
+        logger.info(f"Deleted scan type: {scan_type.name}")
+        return jsonify({'message': 'Scan type deleted successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting scan type {scan_type_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete scan type'}), 500

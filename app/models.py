@@ -223,3 +223,58 @@ class SystemLog(db.Model):
             'details': json.loads(self.details) if self.details else None,
             'created_at': self.created_at.isoformat()
         }
+
+class ScanType(db.Model):
+    """Custom scan type configurations"""
+    __tablename__ = 'scan_types'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    port_range_type = db.Column(db.String(20), nullable=False, default='all')  # common, all, top1000, custom
+    custom_ports = db.Column(db.String(500))  # For custom port ranges
+    nmap_arguments = db.Column(db.String(500), nullable=False, default='-sS -O -A')
+    enable_searchsploit = db.Column(db.Boolean, default=False)  # Enable searchsploit checks
+    enable_osint = db.Column(db.Boolean, default=False)  # Enable OSINT checks
+    enable_cve_lookup = db.Column(db.Boolean, default=False)  # Enable CVE lookup
+    enable_compliance_check = db.Column(db.Boolean, default=False)  # Enable compliance checks
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'port_range_type': self.port_range_type,
+            'custom_ports': self.custom_ports,
+            'nmap_arguments': self.nmap_arguments,
+            'enable_searchsploit': self.enable_searchsploit,
+            'enable_osint': self.enable_osint,
+            'enable_cve_lookup': self.enable_cve_lookup,
+            'enable_compliance_check': self.enable_compliance_check,
+            'description': self.description,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+    
+    def get_port_range(self):
+        """Get the actual port range string for nmap"""
+        if self.port_range_type == 'common':
+            return '1-1000'
+        elif self.port_range_type == 'all':
+            return '1-65535'
+        elif self.port_range_type == 'top1000':
+            return '--top-ports 1000'
+        elif self.port_range_type == 'custom':
+            return self.custom_ports or '1-1000'
+        else:
+            return '1-1000'
+    
+    def get_full_nmap_command(self, target):
+        """Get the complete nmap command for this scan type"""
+        port_range = self.get_port_range()
+        if port_range.startswith('--'):
+            # For --top-ports, don't add -p flag
+            return f"nmap {self.nmap_arguments} {port_range} {target}"
+        else:
+            return f"nmap {self.nmap_arguments} -p {port_range} {target}"
