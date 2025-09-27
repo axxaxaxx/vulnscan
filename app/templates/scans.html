@@ -178,6 +178,25 @@
                     </select>
                 </div>
                 <div class="mb-4">
+                    <label for="port_range" class="block text-sm font-medium text-gray-700">Port Range</label>
+                    <select id="port_range" name="port_range" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" onchange="toggleCustomPorts()">
+                        <option value="common">Common Ports (1-1000)</option>
+                        <option value="all" selected>All Ports (1-65535)</option>
+                        <option value="top1000">Top 1000 Ports</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div id="custom_ports_div" class="mb-4 hidden">
+                    <label for="custom_ports" class="block text-sm font-medium text-gray-700">Custom Port Range</label>
+                    <input type="text" id="custom_ports" name="custom_ports" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., 80,443,8080-8090,22">
+                    <p class="mt-1 text-xs text-gray-500">Enter ports separated by commas, ranges with hyphens (e.g., 80,443,8080-8090)</p>
+                </div>
+                <div class="mb-4">
+                    <label for="nmap_options" class="block text-sm font-medium text-gray-700">Nmap Options</label>
+                    <input type="text" id="nmap_options" name="nmap_options" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., -sS -O -A" value="-sS -O -A">
+                    <p class="mt-1 text-xs text-gray-500">Additional nmap command line options</p>
+                </div>
+                <div class="mb-4">
                     <div class="flex items-center">
                         <input id="enable_cve_lookup" name="enable_cve_lookup" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                         <label for="enable_cve_lookup" class="ml-2 block text-sm text-gray-900">Enable CVE Lookup</label>
@@ -187,6 +206,12 @@
                     <div class="flex items-center">
                         <input id="enable_osint" name="enable_osint" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
                         <label for="enable_osint" class="ml-2 block text-sm text-gray-900">Enable OSINT</label>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <div class="flex items-center">
+                        <input id="enable_compliance_check" name="enable_compliance_check" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="enable_compliance_check" class="ml-2 block text-sm text-gray-900">Enable Compliance Check</label>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -219,6 +244,17 @@
         document.getElementById('scanModal').classList.add('hidden');
         document.getElementById('scanForm').reset();
         document.querySelectorAll('.error-message').forEach(el => el.remove());
+    }
+    
+    function toggleCustomPorts() {
+        const portRange = document.getElementById('port_range').value;
+        const customPortsDiv = document.getElementById('custom_ports_div');
+        
+        if (portRange === 'custom') {
+            customPortsDiv.classList.remove('hidden');
+        } else {
+            customPortsDiv.classList.add('hidden');
+        }
     }
     
     function loadCustomers() {
@@ -339,6 +375,19 @@
         // Convert checkboxes to boolean
         data.enable_cve_lookup = document.getElementById('enable_cve_lookup').checked;
         data.enable_osint = document.getElementById('enable_osint').checked;
+        data.enable_compliance_check = document.getElementById('enable_compliance_check').checked;
+        
+        // Handle port range configuration
+        const portRange = data.port_range;
+        if (portRange === 'common') {
+            data.nmap_options = (data.nmap_options || '') + ' -p 1-1000';
+        } else if (portRange === 'all') {
+            data.nmap_options = (data.nmap_options || '') + ' -p 1-65535';
+        } else if (portRange === 'top1000') {
+            data.nmap_options = (data.nmap_options || '') + ' --top-ports 1000';
+        } else if (portRange === 'custom' && data.custom_ports) {
+            data.nmap_options = (data.nmap_options || '') + ' -p ' + data.custom_ports;
+        }
         
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;

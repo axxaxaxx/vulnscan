@@ -253,6 +253,147 @@ def update_compliance_issue(compliance_id):
         logger.error(f"Error updating compliance issue {compliance_id}: {str(e)}")
         return jsonify({'error': 'Failed to update compliance issue'}), 500
 
+# Scan API endpoints (for frontend compatibility)
+@api_bp.route('/scans', methods=['GET'])
+def api_get_scans():
+    """Get all scans"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        status = request.args.get('status')
+        customer_id = request.args.get('customer_id')
+        
+        query = Scan.query
+        
+        if status:
+            query = query.filter_by(status=status)
+        if customer_id:
+            query = query.filter_by(customer_id=customer_id)
+        
+        scans = query.order_by(Scan.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return jsonify({
+            'scans': [scan.to_dict() for scan in scans.items],
+            'total': scans.total,
+            'pages': scans.pages,
+            'current_page': scans.page,
+            'per_page': scans.per_page,
+            'has_next': scans.has_next,
+            'has_prev': scans.has_prev
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting scans: {str(e)}")
+        return jsonify({'error': 'Failed to get scans'}), 500
+
+@api_bp.route('/scans', methods=['POST'])
+def api_create_scan():
+    """Create a new scan"""
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('customer_id') or not data.get('target'):
+            return jsonify({'error': 'Customer ID and target are required'}), 400
+        
+        # Validate customer exists
+        customer = Customer.query.get(data['customer_id'])
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+        
+        # Create scan
+        scan = Scan(
+            customer_id=data['customer_id'],
+            name=data.get('name', f"Scan of {data['target']}"),
+            target=data['target'],
+            scan_type=data.get('scan_type', 'comprehensive'),
+            nmap_options=json.dumps(data.get('nmap_options', {})),
+            enable_osint=data.get('enable_osint', False),
+            enable_cve_lookup=data.get('enable_cve_lookup', True),
+            enable_compliance_check=data.get('enable_compliance_check', True)
+        )
+        
+        db.session.add(scan)
+        db.session.commit()
+        
+        logger.info(f"Created scan {scan.id} for target {scan.target}")
+        return jsonify(scan.to_dict()), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating scan: {str(e)}")
+        return jsonify({'error': 'Failed to create scan'}), 500
+
+@api_bp.route('/scans/<int:scan_id>', methods=['GET'])
+def api_get_scan(scan_id):
+    """Get a specific scan"""
+    try:
+        scan = Scan.query.get_or_404(scan_id)
+        return jsonify(scan.to_dict())
+    
+    except Exception as e:
+        logger.error(f"Error getting scan {scan_id}: {str(e)}")
+        return jsonify({'error': 'Failed to get scan'}), 500
+
+@api_bp.route('/scans/<int:scan_id>', methods=['PUT'])
+def api_update_scan(scan_id):
+    """Update a scan"""
+    try:
+        scan = Scan.query.get_or_404(scan_id)
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        if 'name' in data:
+            scan.name = data['name']
+        if 'target' in data:
+            scan.target = data['target']
+        if 'scan_type' in data:
+            scan.scan_type = data['scan_type']
+        if 'nmap_options' in data:
+            scan.nmap_options = json.dumps(data['nmap_options'])
+        if 'enable_osint' in data:
+            scan.enable_osint = data['enable_osint']
+        if 'enable_cve_lookup' in data:
+            scan.enable_cve_lookup = data['enable_cve_lookup']
+        if 'enable_compliance_check' in data:
+            scan.enable_compliance_check = data['enable_compliance_check']
+        
+        db.session.commit()
+        
+        logger.info(f"Updated scan {scan_id}")
+        return jsonify(scan.to_dict())
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating scan {scan_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update scan'}), 500
+
+@api_bp.route('/scans/<int:scan_id>', methods=['DELETE'])
+def api_delete_scan(scan_id):
+    """Delete a scan"""
+    try:
+        scan = Scan.query.get_or_404(scan_id)
+        
+        # Cancel any running tasks
+        if scan.status in ['running', 'pending']:
+            scan.status = 'cancelled'
+            scan.completed_at = db.func.now()
+        
+        # Delete scan (cascade will handle related records)
+        db.session.delete(scan)
+        db.session.commit()
+        
+        logger.info(f"Deleted scan {scan_id}")
+        return jsonify({'message': 'Scan deleted successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting scan {scan_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete scan'}), 500
+
 @api_bp.route('/system/stats', methods=['GET'])
 def get_system_stats():
     """Get system statistics"""
