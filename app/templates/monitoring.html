@@ -34,7 +34,7 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">CPU Usage</dt>
-                            <dd class="text-lg font-medium text-gray-900" id="cpu-usage">{{ system_stats.cpu_percent }}%</dd>
+                            <dd class="text-lg font-medium text-gray-900" id="cpu-usage">{{ system_stats.cpu_percent if system_stats else 0 }}%</dd>
                         </dl>
                     </div>
                 </div>
@@ -52,7 +52,7 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Memory Usage</dt>
-                            <dd class="text-lg font-medium text-gray-900" id="memory-usage">{{ system_stats.memory_percent }}%</dd>
+                            <dd class="text-lg font-medium text-gray-900" id="memory-usage">{{ system_stats.memory_percent if system_stats else 0 }}%</dd>
                         </dl>
                     </div>
                 </div>
@@ -70,7 +70,7 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Disk Usage</dt>
-                            <dd class="text-lg font-medium text-gray-900" id="disk-usage">{{ system_stats.disk_percent }}%</dd>
+                            <dd class="text-lg font-medium text-gray-900" id="disk-usage">{{ system_stats.disk_percent if system_stats else 0 }}%</dd>
                         </dl>
                     </div>
                 </div>
@@ -87,8 +87,8 @@
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Active Scans</dt>
-                            <dd class="text-lg font-medium text-gray-900" id="active-scans">{{ active_scans|length }}</dd>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Uptime</dt>
+                            <dd class="text-lg font-medium text-gray-900" id="uptime">{{ system_stats.boot_time if system_stats else 0 }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -96,118 +96,107 @@
         </div>
     </div>
     
-    <!-- Charts Row -->
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <!-- CPU Usage Chart -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">CPU Usage Over Time</h3>
-                <div class="mt-5">
-                    <canvas id="cpuChart" width="400" height="200"></canvas>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Memory Usage Chart -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Memory Usage Over Time</h3>
-                <div class="mt-5">
-                    <canvas id="memoryChart" width="400" height="200"></canvas>
-                </div>
+    <!-- Active Scans -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Active Scans</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% if active_scans %}
+                            {% for scan in active_scans %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">
+                                        <a href="{{ url_for('main.scan_detail', scan_id=scan.id) }}" class="text-blue-600 hover:text-blue-900">
+                                            {{ scan.name }}
+                                        </a>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ scan.target }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        {% if scan.status == 'completed' %}bg-green-100 text-green-800
+                                        {% elif scan.status == 'running' %}bg-blue-100 text-blue-800
+                                        {% elif scan.status == 'failed' %}bg-red-100 text-red-800
+                                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                        {{ scan.status.title() }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-blue-600 h-2 rounded-full" style="width: {{ scan.progress }}%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500">{{ scan.progress }}%</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {% if scan.started_at %}
+                                        {{ scan.started_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% else %}
+                                        Not started
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">No active scans</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
     
-    <!-- Active Scans and System Logs -->
-    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <!-- Active Scans -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Active Scans</h3>
-                <div class="mt-5">
-                    {% if active_scans %}
-                    <div class="flow-root">
-                        <ul class="-my-5 divide-y divide-gray-200">
-                            {% for scan in active_scans %}
-                            <li class="py-4">
-                                <div class="flex items-center space-x-4">
-                                    <div class="flex-shrink-0">
-                                        <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                            <svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 truncate">
-                                            <a href="{{ url_for('main.scan_detail', scan_id=scan.id) }}" class="text-blue-600 hover:text-blue-900">
-                                                {{ scan.name }}
-                                            </a>
-                                        </p>
-                                        <p class="text-sm text-gray-500 truncate">{{ scan.target }}</p>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <div class="flex items-center">
-                                            <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ scan.progress }}%"></div>
-                                            </div>
-                                            <span class="text-sm text-gray-600">{{ scan.progress }}%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-12">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No active scans</h3>
-                        <p class="mt-1 text-sm text-gray-500">All scans are currently idle.</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <!-- System Logs -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Recent System Logs</h3>
-                <div class="mt-5">
-                    <div class="flow-root">
-                        <ul class="-my-5 divide-y divide-gray-200">
+    <!-- System Logs -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Recent System Logs</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Component</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% if recent_logs %}
                             {% for log in recent_logs %}
-                            <li class="py-4">
-                                <div class="flex items-center space-x-4">
-                                    <div class="flex-shrink-0">
-                                        <div class="h-8 w-8 rounded-full 
-                                            {% if log.level == 'error' %}bg-red-100
-                                            {% elif log.level == 'warning' %}bg-yellow-100
-                                            {% elif log.level == 'info' %}bg-blue-100
-                                            {% else %}bg-gray-100{% endif %} flex items-center justify-center">
-                                            <svg class="h-5 w-5 
-                                                {% if log.level == 'error' %}text-red-600
-                                                {% elif log.level == 'warning' %}text-yellow-600
-                                                {% elif log.level == 'info' %}text-blue-600
-                                                {% else %}text-gray-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                        </div>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 truncate">{{ log.message }}</p>
-                                        <p class="text-sm text-gray-500 truncate">{{ log.component }} • {{ formatDate(log.created_at) }}</p>
-                                    </div>
-                                </div>
-                            </li>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        {% if log.level == 'error' %}bg-red-100 text-red-800
+                                        {% elif log.level == 'warning' %}bg-yellow-100 text-yellow-800
+                                        {% elif log.level == 'info' %}bg-blue-100 text-blue-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ log.level.title() }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.component }}</td>
+                                <td class="px-6 py-4 text-sm text-gray-900">{{ log.message }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
                             {% endfor %}
-                        </ul>
-                    </div>
-                </div>
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No recent logs</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -216,115 +205,26 @@
 
 {% block extra_js %}
 <script>
-    // Initialize charts
-    let cpuChart, memoryChart;
-    let cpuData = [];
-    let memoryData = [];
-    let timeLabels = [];
-    
-    function initCharts() {
-        const cpuCtx = document.getElementById('cpuChart').getContext('2d');
-        cpuChart = new Chart(cpuCtx, {
-            type: 'line',
-            data: {
-                labels: timeLabels,
-                datasets: [{
-                    label: 'CPU Usage %',
-                    data: cpuData,
-                    borderColor: 'rgb(59, 130, 246)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                }
-            }
-        });
-        
-        const memoryCtx = document.getElementById('memoryChart').getContext('2d');
-        memoryChart = new Chart(memoryCtx, {
-            type: 'line',
-            data: {
-                labels: timeLabels,
-                datasets: [{
-                    label: 'Memory Usage %',
-                    data: memoryData,
-                    borderColor: 'rgb(16, 185, 129)',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                }
-            }
-        });
-    }
-    
-    function updateCharts() {
-        const now = new Date().toLocaleTimeString();
-        timeLabels.push(now);
-        
-        // Keep only last 20 data points
-        if (timeLabels.length > 20) {
-            timeLabels.shift();
-            cpuData.shift();
-            memoryData.shift();
-        }
-        
-        // Update charts
-        cpuChart.update('none');
-        memoryChart.update('none');
-    }
-    
     function refreshData() {
-        fetch('/monitor/dashboard')
+        // Refresh the page to get updated data
+        location.reload();
+    }
+    
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        // Update system stats without full page reload
+        fetch('/api/monitoring/stats')
             .then(response => response.json())
             .then(data => {
-                // Update system stats
-                document.getElementById('cpu-usage').textContent = data.system_stats.cpu_percent + '%';
-                document.getElementById('memory-usage').textContent = data.system_stats.memory_percent + '%';
-                document.getElementById('disk-usage').textContent = data.system_stats.disk_percent + '%';
-                document.getElementById('active-scans').textContent = data.app_stats.active_scans;
-                
-                // Update charts
-                cpuData.push(data.system_stats.cpu_percent);
-                memoryData.push(data.system_stats.memory_percent);
-                updateCharts();
-                
-                showNotification('Data refreshed successfully', 'success');
+                if (data.system_stats) {
+                    document.getElementById('cpu-usage').textContent = data.system_stats.cpu_percent + '%';
+                    document.getElementById('memory-usage').textContent = data.system_stats.memory_percent + '%';
+                    document.getElementById('disk-usage').textContent = data.system_stats.disk_percent + '%';
+                }
             })
             .catch(error => {
-                console.error('Error refreshing data:', error);
-                showNotification('Error refreshing data', 'error');
+                console.error('Error updating stats:', error);
             });
-    }
-    
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        initCharts();
-        
-        // Add initial data point
-        cpuData.push({{ system_stats.cpu_percent }});
-        memoryData.push({{ system_stats.memory_percent }});
-        timeLabels.push(new Date().toLocaleTimeString());
-        updateCharts();
-        
-        // Auto-refresh every 30 seconds
-        setInterval(refreshData, 30000);
-    });
+    }, 30000);
 </script>
 {% endblock %}

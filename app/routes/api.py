@@ -307,3 +307,189 @@ def get_logs():
     except Exception as e:
         logger.error(f"Error getting logs: {str(e)}")
         return jsonify({'error': 'Failed to get logs'}), 500
+
+# Scan API endpoints
+@api_bp.route('/scans', methods=['GET'])
+def get_scans():
+    """Get all scans"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        scans = Scan.query.order_by(Scan.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return jsonify({
+            'scans': [scan.to_dict() for scan in scans.items],
+            'total': scans.total,
+            'pages': scans.pages,
+            'current_page': scans.page,
+            'per_page': scans.per_page
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting scans: {str(e)}")
+        return jsonify({'error': 'Failed to get scans'}), 500
+
+@api_bp.route('/scans', methods=['POST'])
+def create_scan():
+    """Create a new scan"""
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('customer_id') or not data.get('target'):
+            return jsonify({'error': 'Customer ID and target are required'}), 400
+        
+        # Validate customer exists
+        customer = Customer.query.get(data['customer_id'])
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+        
+        scan = Scan(
+            customer_id=data['customer_id'],
+            name=data.get('name', f"Scan of {data['target']}"),
+            target=data['target'],
+            scan_type=data.get('scan_type', 'comprehensive'),
+            enable_cve_lookup=data.get('enable_cve_lookup', False),
+            enable_osint=data.get('enable_osint', False)
+        )
+        
+        db.session.add(scan)
+        db.session.commit()
+        
+        logger.info(f"Created scan: {scan.name}")
+        return jsonify(scan.to_dict()), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating scan: {str(e)}")
+        return jsonify({'error': 'Failed to create scan'}), 500
+
+@api_bp.route('/scans/<int:scan_id>', methods=['GET'])
+def get_scan(scan_id):
+    """Get a specific scan"""
+    try:
+        scan = Scan.query.get_or_404(scan_id)
+        return jsonify(scan.to_dict())
+    
+    except Exception as e:
+        logger.error(f"Error getting scan {scan_id}: {str(e)}")
+        return jsonify({'error': 'Scan not found'}), 404
+
+@api_bp.route('/scans/<int:scan_id>', methods=['PUT'])
+def update_scan(scan_id):
+    """Update a scan"""
+    try:
+        scan = Scan.query.get_or_404(scan_id)
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        if 'name' in data:
+            scan.name = data['name']
+        if 'target' in data:
+            scan.target = data['target']
+        if 'scan_type' in data:
+            scan.scan_type = data['scan_type']
+        if 'enable_cve_lookup' in data:
+            scan.enable_cve_lookup = data['enable_cve_lookup']
+        if 'enable_osint' in data:
+            scan.enable_osint = data['enable_osint']
+        
+        db.session.commit()
+        
+        logger.info(f"Updated scan: {scan.name}")
+        return jsonify(scan.to_dict())
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating scan {scan_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update scan'}), 500
+
+@api_bp.route('/scans/<int:scan_id>', methods=['DELETE'])
+def delete_scan(scan_id):
+    """Delete a scan"""
+    try:
+        scan = Scan.query.get_or_404(scan_id)
+        
+        # Delete related data
+        Vulnerability.query.filter_by(scan_id=scan_id).delete()
+        Port.query.filter_by(scan_id=scan_id).delete()
+        ComplianceIssue.query.filter_by(scan_id=scan_id).delete()
+        
+        db.session.delete(scan)
+        db.session.commit()
+        
+        logger.info(f"Deleted scan: {scan.name}")
+        return jsonify({'message': 'Scan deleted successfully'})
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting scan {scan_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete scan'}), 500
+
+@api_bp.route('/scans/<int:scan_id>/start', methods=['POST'])
+def start_scan(scan_id):
+    """Start a scan"""
+    try:
+        scan = Scan.query.get_or_404(scan_id)
+        
+        if scan.status != 'pending':
+            return jsonify({'error': f'Scan is already {scan.status}'}), 400
+        
+        # Update scan status
+        scan.status = 'running'
+        scan.started_at = db.func.now()
+        db.session.commit()
+        
+        # Start background tasks (this would normally be done via Celery)
+        # For now, we'll just update the status
+        logger.info(f"Started scan: {scan.name}")
+        return jsonify(scan.to_dict())
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error starting scan {scan_id}: {str(e)}")
+        return jsonify({'error': 'Failed to start scan'}), 500
+
+# Monitoring API endpoints
+@api_bp.route('/monitoring/stats', methods=['GET'])
+def get_monitoring_stats():
+    """Get system monitoring statistics"""
+    try:
+        # Get system statistics
+        try:
+            import psutil
+            
+            system_stats = {
+                'cpu_percent': psutil.cpu_percent(interval=1),
+                'memory_percent': psutil.virtual_memory().percent,
+                'disk_percent': psutil.disk_usage('/').percent,
+                'boot_time': psutil.boot_time()
+            }
+        except ImportError:
+            # Fallback if psutil is not available
+            system_stats = {
+                'cpu_percent': 0,
+                'memory_percent': 0,
+                'disk_percent': 0,
+                'boot_time': 0
+            }
+        
+        # Get active scans count
+        active_scans_count = Scan.query.filter(Scan.status.in_(['pending', 'running'])).count()
+        
+        # Get recent logs count
+        recent_logs_count = SystemLog.query.count()
+        
+        return jsonify({
+            'system_stats': system_stats,
+            'active_scans_count': active_scans_count,
+            'recent_logs_count': recent_logs_count
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting monitoring stats: {str(e)}")
+        return jsonify({'error': 'Failed to get monitoring stats'}), 500

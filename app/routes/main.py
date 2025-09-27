@@ -155,14 +155,24 @@ def monitoring():
     """System monitoring page"""
     try:
         # Get system statistics
-        import psutil
-        
-        system_stats = {
-            'cpu_percent': psutil.cpu_percent(interval=1),
-            'memory_percent': psutil.virtual_memory().percent,
-            'disk_percent': psutil.disk_usage('/').percent,
-            'boot_time': psutil.boot_time()
-        }
+        try:
+            import psutil
+            
+            system_stats = {
+                'cpu_percent': psutil.cpu_percent(interval=1),
+                'memory_percent': psutil.virtual_memory().percent,
+                'disk_percent': psutil.disk_usage('/').percent,
+                'boot_time': psutil.boot_time()
+            }
+        except ImportError:
+            # Fallback if psutil is not available
+            logger.warning("psutil not available, using default system stats")
+            system_stats = {
+                'cpu_percent': 0,
+                'memory_percent': 0,
+                'disk_percent': 0,
+                'boot_time': 0
+            }
         
         # Get recent system logs
         recent_logs = SystemLog.query.order_by(SystemLog.created_at.desc()).limit(50).all()
@@ -178,7 +188,16 @@ def monitoring():
     except Exception as e:
         logger.error(f"Error loading monitoring page: {str(e)}")
         flash('Error loading monitoring data', 'error')
-        return render_template('monitoring.html')
+        # Provide default values to avoid template errors
+        return render_template('monitoring.html',
+                             system_stats={
+                                 'cpu_percent': 0,
+                                 'memory_percent': 0,
+                                 'disk_percent': 0,
+                                 'boot_time': 0
+                             },
+                             recent_logs=[],
+                             active_scans=[])
 
 @main_bp.route('/reports')
 def reports():
