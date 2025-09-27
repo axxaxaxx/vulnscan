@@ -25,17 +25,17 @@ def create_default_scan_types():
         
         logger.info("Creating default scan types...")
         
-        # Basic Scan - Common ports only
+        # Basic Scan - Common ports with searchsploit only
         basic_scan = ScanType(
             name="Basic Scan",
             port_range_type="common",
             custom_ports=None,
-            nmap_arguments="-sS -sV -O --script vuln",
-            enable_searchsploit=False,
+            nmap_arguments="-sS -sV -O",
+            enable_searchsploit=True,
             enable_osint=False,
-            enable_cve_lookup=True,
-            enable_compliance_check=True,
-            description="A quick scan of the most common ports (1-1000) with basic vulnerability detection. Perfect for initial reconnaissance and quick security assessments.",
+            enable_cve_lookup=False,
+            enable_compliance_check=False,
+            description="A quick scan of the most common ports (1-1000) with searchsploit vulnerability search. Perfect for initial reconnaissance and port discovery.",
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
@@ -81,12 +81,12 @@ def ensure_default_scan_types():
                 name="Basic Scan",
                 port_range_type="common",
                 custom_ports=None,
-                nmap_arguments="-sS -sV -O --script vuln",
-                enable_searchsploit=False,
+                nmap_arguments="-sS -sV -O",
+                enable_searchsploit=True,
                 enable_osint=False,
-                enable_cve_lookup=True,
-                enable_compliance_check=True,
-                description="A quick scan of the most common ports (1-1000) with basic vulnerability detection. Perfect for initial reconnaissance and quick security assessments.",
+                enable_cve_lookup=False,
+                enable_compliance_check=False,
+                description="A quick scan of the most common ports (1-1000) with searchsploit vulnerability search. Perfect for initial reconnaissance and port discovery.",
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc)
             )
@@ -133,12 +133,12 @@ def get_default_scan_types():
             "name": "Basic Scan",
             "port_range_type": "common",
             "custom_ports": None,
-            "nmap_arguments": "-sS -sV -O --script vuln",
-            "enable_searchsploit": False,
+            "nmap_arguments": "-sS -sV -O",
+            "enable_searchsploit": True,
             "enable_osint": False,
-            "enable_cve_lookup": True,
-            "enable_compliance_check": True,
-            "description": "A quick scan of the most common ports (1-1000) with basic vulnerability detection. Perfect for initial reconnaissance and quick security assessments."
+            "enable_cve_lookup": False,
+            "enable_compliance_check": False,
+            "description": "A quick scan of the most common ports (1-1000) with searchsploit vulnerability search. Perfect for initial reconnaissance and port discovery."
         },
         {
             "name": "Comprehensive Scan",
