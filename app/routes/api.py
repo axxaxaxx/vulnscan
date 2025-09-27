@@ -9,6 +9,7 @@ from app import db
 from app.models import Scan, Customer, Vulnerability, Port, ComplianceIssue, SystemLog
 from app.modules.logger import get_logger
 from app.modules.pdf_generator import PDFGenerator
+from sqlalchemy.exc import NoResultFound
 import json
 
 api_bp = Blueprint('api', __name__)
@@ -56,7 +57,9 @@ def create_customer():
 def get_customer(customer_id):
     """Get a specific customer"""
     try:
-        customer = Customer.query.get_or_404(customer_id)
+        customer = Customer.query.get(customer_id)
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
         return jsonify(customer.to_dict())
     
     except Exception as e:
@@ -67,7 +70,10 @@ def get_customer(customer_id):
 def update_customer(customer_id):
     """Update a customer"""
     try:
-        customer = Customer.query.get_or_404(customer_id)
+        customer = Customer.query.get(customer_id)
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+            
         data = request.get_json()
         
         if not data:
@@ -94,7 +100,9 @@ def update_customer(customer_id):
 def delete_customer(customer_id):
     """Delete a customer"""
     try:
-        customer = Customer.query.get_or_404(customer_id)
+        customer = Customer.query.get(customer_id)
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
         
         # Check if customer has scans
         scans = Scan.query.filter_by(customer_id=customer_id).count()
@@ -188,7 +196,9 @@ def api_create_scan():
 def api_get_scan(scan_id):
     """Get a specific scan"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
         return jsonify(scan.to_dict())
     
     except Exception as e:
@@ -199,7 +209,10 @@ def api_get_scan(scan_id):
 def api_update_scan(scan_id):
     """Update a scan"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+            
         data = request.get_json()
         
         if not data:
@@ -234,7 +247,9 @@ def api_update_scan(scan_id):
 def api_delete_scan(scan_id):
     """Delete a scan"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
         
         # Cancel any running tasks
         if scan.status in ['running', 'pending']:
@@ -257,7 +272,9 @@ def api_delete_scan(scan_id):
 def api_start_scan(scan_id):
     """Start a scan via API"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
         
         if scan.status != 'pending':
             return jsonify({'error': f'Scan is already {scan.status}'}), 400
@@ -390,7 +407,10 @@ def api_start_scan(scan_id):
 def api_stop_scan(scan_id):
     """Stop a running scan"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+            
         if scan.status != 'running':
             return jsonify({'error': f'Scan is not running (status: {scan.status})'}), 400
         
@@ -441,7 +461,10 @@ def reset_stuck_scans():
 def get_scan_vulnerabilities(scan_id):
     """Get vulnerabilities for a specific scan"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+            
         vulnerabilities = Vulnerability.query.filter_by(scan_id=scan_id).all()
         return jsonify([vuln.to_dict() for vuln in vulnerabilities])
     
@@ -453,7 +476,10 @@ def get_scan_vulnerabilities(scan_id):
 def get_scan_ports(scan_id):
     """Get ports for a specific scan"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+            
         ports = Port.query.filter_by(scan_id=scan_id).all()
         return jsonify([port.to_dict() for port in ports])
     
@@ -465,7 +491,10 @@ def get_scan_ports(scan_id):
 def get_scan_compliance(scan_id):
     """Get compliance issues for a specific scan"""
     try:
-        scan = Scan.query.get_or_404(scan_id)
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+            
         compliance_issues = ComplianceIssue.query.filter_by(scan_id=scan_id).all()
         return jsonify([issue.to_dict() for issue in compliance_issues])
     
@@ -477,7 +506,10 @@ def get_scan_compliance(scan_id):
 def update_vulnerability(vuln_id):
     """Update a vulnerability"""
     try:
-        vulnerability = Vulnerability.query.get_or_404(vuln_id)
+        vulnerability = Vulnerability.query.get(vuln_id)
+        if not vulnerability:
+            return jsonify({'error': 'Vulnerability not found'}), 404
+            
         data = request.get_json()
         
         if not data:
@@ -502,7 +534,10 @@ def update_vulnerability(vuln_id):
 def update_compliance_issue(compliance_id):
     """Update a compliance issue"""
     try:
-        compliance_issue = ComplianceIssue.query.get_or_404(compliance_id)
+        compliance_issue = ComplianceIssue.query.get(compliance_id)
+        if not compliance_issue:
+            return jsonify({'error': 'Compliance issue not found'}), 404
+            
         data = request.get_json()
         
         if not data:
