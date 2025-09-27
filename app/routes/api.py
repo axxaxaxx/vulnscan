@@ -308,10 +308,10 @@ def get_logs():
         logger.error(f"Error getting logs: {str(e)}")
         return jsonify({'error': 'Failed to get logs'}), 500
 
-# Scan API endpoints
+# Scan API endpoints (for frontend compatibility)
 @api_bp.route('/scans', methods=['GET'])
-def get_scans():
-    """Get all scans"""
+def api_get_scans():
+    """Get all scans via API"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
@@ -333,8 +333,8 @@ def get_scans():
         return jsonify({'error': 'Failed to get scans'}), 500
 
 @api_bp.route('/scans', methods=['POST'])
-def create_scan():
-    """Create a new scan"""
+def api_create_scan():
+    """Create a new scan via API"""
     try:
         data = request.get_json()
         
@@ -367,8 +367,8 @@ def create_scan():
         return jsonify({'error': 'Failed to create scan'}), 500
 
 @api_bp.route('/scans/<int:scan_id>', methods=['GET'])
-def get_scan(scan_id):
-    """Get a specific scan"""
+def api_get_scan(scan_id):
+    """Get a specific scan via API"""
     try:
         scan = Scan.query.get_or_404(scan_id)
         return jsonify(scan.to_dict())
@@ -378,8 +378,8 @@ def get_scan(scan_id):
         return jsonify({'error': 'Scan not found'}), 404
 
 @api_bp.route('/scans/<int:scan_id>', methods=['PUT'])
-def update_scan(scan_id):
-    """Update a scan"""
+def api_update_scan(scan_id):
+    """Update a scan via API"""
     try:
         scan = Scan.query.get_or_404(scan_id)
         data = request.get_json()
@@ -409,8 +409,8 @@ def update_scan(scan_id):
         return jsonify({'error': 'Failed to update scan'}), 500
 
 @api_bp.route('/scans/<int:scan_id>', methods=['DELETE'])
-def delete_scan(scan_id):
-    """Delete a scan"""
+def api_delete_scan(scan_id):
+    """Delete a scan via API"""
     try:
         scan = Scan.query.get_or_404(scan_id)
         
@@ -431,8 +431,8 @@ def delete_scan(scan_id):
         return jsonify({'error': 'Failed to delete scan'}), 500
 
 @api_bp.route('/scans/<int:scan_id>/start', methods=['POST'])
-def start_scan(scan_id):
-    """Start a scan"""
+def api_start_scan(scan_id):
+    """Start a scan via API"""
     try:
         scan = Scan.query.get_or_404(scan_id)
         
