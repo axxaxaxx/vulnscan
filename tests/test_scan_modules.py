@@ -28,6 +28,7 @@ class TestNmapScanner:
             }
         }
         mock_scanner.all_hosts.return_value = ['192.168.1.1']
+        mock_scanner.__getitem__ = Mock()  # Add __getitem__ support
         
         mock_host = Mock()
         mock_host.hostname.return_value = 'test-host'
@@ -52,6 +53,7 @@ class TestNmapScanner:
         mock_tcp[80] = mock_port_info
         mock_tcp[443] = mock_port_info
         
+        # Configure the scanner to return the host when accessed by IP
         mock_scanner.__getitem__.return_value = mock_host
         mock_portscanner.return_value = mock_scanner
         
