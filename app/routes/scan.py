@@ -5,7 +5,8 @@ Handles scan creation, execution, and monitoring
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_socketio import emit
-from app import db, celery
+from app import db
+from app.tasks.scan_tasks import celery
 from app.models import Scan, Customer, ScanTask, SystemLog
 from app.modules.logger import get_logger
 from app.tasks.scan_tasks import run_nmap_scan, run_cve_lookup, run_osint_scan, run_compliance_check

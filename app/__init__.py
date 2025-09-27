@@ -19,6 +19,9 @@ db = SQLAlchemy()
 socketio = SocketIO()
 migrate = Migrate()
 
+# Import celery from tasks module
+from app.tasks.scan_tasks import celery
+
 def create_app():
     """Application factory pattern"""
     app = Flask(__name__)
@@ -43,23 +46,4 @@ def create_app():
     app.register_blueprint(report_bp, url_prefix='/report')
     app.register_blueprint(monitor_bp, url_prefix='/monitor')
     
-    # Initialize Celery
-    celery = make_celery(app)
-    
     return app, celery
-
-def make_celery(app):
-    """Initialize Celery with Flask app context"""
-    celery = Celery(
-        app.import_name,
-        backend=app.config.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0'),
-        broker=app.config.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-    )
-    
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-    
-    celery.Task = ContextTask
-    return celery

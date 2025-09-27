@@ -48,8 +48,9 @@ def test_imports():
         print("✓ Scanning modules imported successfully")
         
         # Test task imports
-        from app.tasks import run_nmap_scan, run_cve_lookup
+        from app.tasks import run_nmap_scan, run_cve_lookup, celery
         print("✓ Celery tasks imported successfully")
+        print(f"✓ Celery instance: {celery}")
         
         print("\n✅ All imports successful!")
         return True

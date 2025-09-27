@@ -218,12 +218,32 @@ The application will fall back to ReportLab if WeasyPrint is not available. To e
 # Or use ReportLab only by modifying requirements.txt
 ```
 
+### 10. Celery Import Issues
+
+#### Error: `ImportError: cannot import name 'celery' from 'app'`
+
+**Solution:**
+This error occurs when Celery is not properly initialized. The fix is already included in the current code:
+
+```bash
+# Test Celery imports
+python test_celery_import.py
+
+# If that fails, check the celery instance
+python3 -c "from app.tasks.scan_tasks import celery; print(celery)"
+```
+
+The Celery instance is now properly defined in `app/tasks/scan_tasks.py` and imported where needed.
+
 ## Debugging Steps
 
 ### 1. Check Installation
 ```bash
 # Run the test script
 python test_installation.py
+
+# Test Celery imports specifically
+python test_celery_import.py
 ```
 
 ### 2. Check Environment

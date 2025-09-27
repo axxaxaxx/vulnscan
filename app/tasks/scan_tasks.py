@@ -3,8 +3,16 @@ Celery tasks for vulnerability scanning
 Handles background execution of scans and lookups
 """
 
-from celery import current_task
-from app import celery, db
+from celery import current_task, Celery
+from app import db
+import os
+
+# Create celery instance
+celery = Celery(
+    'vuln_scanner',
+    backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0'),
+    broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+)
 from app.models import Scan, Port, Vulnerability, ScanTask, SystemLog
 from app.modules.nmap_scanner import NmapScanner
 from app.modules.searchsploit_scanner import SearchsploitScanner
