@@ -102,37 +102,6 @@ def scans():
         flash('Error loading scans', 'error')
         return render_template('scans.html', scans=None)
 
-@main_bp.route('/scans/<int:scan_id>')
-def scan_detail(scan_id):
-    """Scan detail page"""
-    try:
-        scan = Scan.query.get_or_404(scan_id)
-        customer = Customer.query.get(scan.customer_id)
-        vulnerabilities = Vulnerability.query.filter_by(scan_id=scan_id).all()
-        ports = Port.query.filter_by(scan_id=scan_id).all()
-        compliance_issues = ComplianceIssue.query.filter_by(scan_id=scan_id).all()
-        
-        # Group vulnerabilities by severity
-        vuln_by_severity = {
-            'critical': [v for v in vulnerabilities if v.severity == 'critical'],
-            'high': [v for v in vulnerabilities if v.severity == 'high'],
-            'medium': [v for v in vulnerabilities if v.severity == 'medium'],
-            'low': [v for v in vulnerabilities if v.severity == 'low'],
-            'info': [v for v in vulnerabilities if v.severity == 'info']
-        }
-        
-        return render_template('scan_detail.html',
-                             scan=scan,
-                             customer=customer,
-                             vulnerabilities=vulnerabilities,
-                             ports=ports,
-                             compliance_issues=compliance_issues,
-                             vuln_by_severity=vuln_by_severity)
-    
-    except Exception as e:
-        logger.error(f"Error loading scan detail: {str(e)}")
-        flash('Error loading scan details', 'error')
-        return redirect(url_for('main.scans'))
 
 @main_bp.route('/customers/<int:customer_id>')
 def customer_detail(customer_id):

@@ -465,68 +465,6 @@ def reset_stuck_scans():
         logger.error(f"Error resetting stuck scans: {str(e)}")
         return jsonify({'error': 'Failed to reset stuck scans'}), 500
 
-@api_bp.route('/scans/<int:scan_id>/export-pdf', methods=['POST'])
-def export_scan_pdf(scan_id):
-    """Export scan results as PDF"""
-    try:
-        scan = Scan.query.get(scan_id)
-        if not scan:
-            return jsonify({'error': 'Scan not found'}), 404
-        
-        if scan.status != 'completed':
-            return jsonify({'error': 'Only completed scans can be exported to PDF'}), 400
-        
-        # Get scan data
-        customer = Customer.query.get(scan.customer_id)
-        vulnerabilities = Vulnerability.query.filter_by(scan_id=scan_id).all()
-        ports = Port.query.filter_by(scan_id=scan_id).all()
-        compliance_issues = ComplianceIssue.query.filter_by(scan_id=scan_id).all()
-        
-        # Create reports directory if it doesn't exist
-        import os
-        reports_dir = os.path.join(current_app.root_path, '..', 'reports')
-        os.makedirs(reports_dir, exist_ok=True)
-        
-        # Generate PDF
-        from app.modules.pdf_generator import PDFGenerator
-        pdf_generator = PDFGenerator()
-        
-        # Prepare scan data for PDF
-        scan_data = {
-            'scan': scan.to_dict(),
-            'customer': customer.to_dict() if customer else None,
-            'vulnerabilities': [vuln.to_dict() for vuln in vulnerabilities],
-            'ports': [port.to_dict() for port in ports],
-            'compliance_issues': [issue.to_dict() for issue in compliance_issues],
-            'generated_at': datetime.utcnow().isoformat()
-        }
-        
-        # Generate PDF content
-        pdf_content = pdf_generator.generate_scan_report(scan_data)
-        
-        # Save PDF to reports directory
-        filename = f"scan_{scan_id}_{scan.name.replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
-        filepath = os.path.join(reports_dir, filename)
-        
-        with open(filepath, 'wb') as f:
-            f.write(pdf_content)
-        
-        logger.info(f"Generated PDF report for scan {scan_id}: {filepath}")
-        
-        # Return PDF as response
-        from flask import Response
-        return Response(
-            pdf_content,
-            mimetype='application/pdf',
-            headers={
-                'Content-Disposition': f'attachment; filename="{filename}"',
-                'Content-Type': 'application/pdf'
-            }
-        )
-    
-    except Exception as e:
-        logger.error(f"Error generating PDF for scan {scan_id}: {str(e)}")
-        return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
 
 # Vulnerability API endpoints
 @api_bp.route('/scans/<int:scan_id>/vulnerabilities', methods=['GET'])

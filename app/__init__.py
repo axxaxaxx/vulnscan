@@ -34,7 +34,7 @@ def create_app():
     
     # Initialize extensions
     db.init_app(app)
-    socketio.init_app(app, cors_allowed_origins="*")
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='threading')
     migrate.init_app(app, db)
     CORS(app)
     
