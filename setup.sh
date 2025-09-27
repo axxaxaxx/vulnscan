@@ -171,6 +171,9 @@ init_database() {
     # Activate virtual environment
     source venv/bin/activate
     
+    # Set Flask app environment variable
+    export FLASK_APP=flask_app.py
+    
     # Initialize Flask-Migrate
     if [ ! -d "migrations" ]; then
         flask db init
@@ -249,6 +252,9 @@ echo "Starting Vulnerability Scanner Web Application..."
 
 # Activate virtual environment
 source venv/bin/activate
+
+# Set Flask app environment variable
+export FLASK_APP=flask_app.py
 
 # Start Redis if not running
 if ! redis-cli ping >/dev/null 2>&1; then

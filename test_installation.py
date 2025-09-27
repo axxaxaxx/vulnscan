@@ -39,14 +39,17 @@ def test_imports():
         from app.models import Customer, Scan, Vulnerability
         print("✓ Database models imported successfully")
         
-        from app.modules.nmap_scanner import NmapScanner
-        print("✓ Nmap scanner imported successfully")
+        # Test route imports
+        from app.routes import main_bp, api_bp, scan_bp, report_bp, monitor_bp
+        print("✓ Route blueprints imported successfully")
         
-        from app.modules.cve_lookup import CVELookup
-        print("✓ CVE lookup imported successfully")
+        # Test module imports
+        from app.modules import NmapScanner, CVELookup, ComplianceChecker
+        print("✓ Scanning modules imported successfully")
         
-        from app.modules.compliance_checker import ComplianceChecker
-        print("✓ Compliance checker imported successfully")
+        # Test task imports
+        from app.tasks import run_nmap_scan, run_cve_lookup
+        print("✓ Celery tasks imported successfully")
         
         print("\n✅ All imports successful!")
         return True
