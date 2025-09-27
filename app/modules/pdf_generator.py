@@ -59,185 +59,207 @@ class PDFGenerator:
                 raise ValueError(f"Unknown PDF engine: {self.engine}")
         except Exception as e:
             logger.error(f"Error generating scan report: {str(e)}")
-            raise
+            # Fallback to ReportLab if WeasyPrint fails
+            if self.engine == 'weasyprint' and self.reportlab_available:
+                logger.info("WeasyPrint failed, falling back to ReportLab")
+                self.engine = 'reportlab'
+                return self._generate_with_reportlab(scan_data)
+            else:
+                raise
 
     def _generate_with_weasyprint(self, scan_data):
         """Generate PDF using WeasyPrint"""
-        from weasyprint import HTML, CSS
-        
-        html_content = self._generate_html_report(scan_data)
-        css_content = self._get_css_styles()
-        
-        html_doc = HTML(string=html_content)
-        css_doc = CSS(string=css_content)
-        
-        return html_doc.write_pdf(stylesheets=[css_doc])
+        try:
+            from weasyprint import HTML, CSS
+            
+            html_content = self._generate_html_report(scan_data)
+            css_content = self._get_css_styles()
+            
+            # Create HTML document
+            html_doc = HTML(string=html_content)
+            
+            # Create CSS document
+            css_doc = CSS(string=css_content)
+            
+            # Generate PDF
+            pdf_bytes = html_doc.write_pdf(stylesheets=[css_doc])
+            
+            return pdf_bytes
+            
+        except Exception as e:
+            logger.error(f"WeasyPrint error: {str(e)}")
+            raise
 
     def _generate_with_reportlab(self, scan_data):
         """Generate PDF using ReportLab"""
-        from reportlab.lib.pagesizes import letter, A4
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-        from reportlab.lib import colors
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-        from io import BytesIO
-        
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
-        
-        # Get styles
-        styles = getSampleStyleSheet()
-        
-        # Create custom styles
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            spaceAfter=30,
-            alignment=TA_CENTER,
-            textColor=colors.darkblue
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=16,
-            spaceAfter=12,
-            textColor=colors.darkblue
-        )
-        
-        # Build content
-        story = []
-        
-        # Title
-        story.append(Paragraph("Vulnerability Scan Report", title_style))
-        story.append(Spacer(1, 12))
-        
-        # Scan information
-        scan = scan_data['scan']
-        customer = scan_data['customer']
-        
-        scan_info = [
-            ['Scan Name:', scan.get('name', 'N/A')],
-            ['Target:', scan.get('target', 'N/A')],
-            ['Scan Type:', scan.get('scan_type', 'N/A')],
-            ['Status:', scan.get('status', 'N/A')],
-            ['Created:', scan.get('created_at', 'N/A')],
-            ['Completed:', scan.get('completed_at', 'N/A')],
-        ]
-        
-        if customer:
-            scan_info.extend([
-                ['Customer:', customer.get('name', 'N/A')],
-                ['Organization:', customer.get('organization', 'N/A')],
-                ['Email:', customer.get('email', 'N/A')]
-            ])
-        
-        scan_info.append(['Report Generated:', scan_data.get('generated_at', 'N/A')])
-        
-        scan_table = Table(scan_info, colWidths=[2*inch, 4*inch])
-        scan_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        
-        story.append(scan_table)
-        story.append(Spacer(1, 20))
-        
-        # Ports section
-        ports = scan_data.get('ports', [])
-        if ports:
-            story.append(Paragraph("Open Ports", heading_style))
+        try:
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            from reportlab.lib import colors
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            from io import BytesIO
             
-            port_data = [['Port', 'Protocol', 'State', 'Service', 'Version']]
-            for port in ports:
-                port_data.append([
-                    str(port.get('port_number', '')),
-                    port.get('protocol', ''),
-                    port.get('state', ''),
-                    port.get('service', ''),
-                    port.get('version', '')
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+            
+            # Get styles
+            styles = getSampleStyleSheet()
+            
+            # Create custom styles
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=24,
+                spaceAfter=30,
+                alignment=TA_CENTER,
+                textColor=colors.darkblue
+            )
+            
+            heading_style = ParagraphStyle(
+                'CustomHeading',
+                parent=styles['Heading2'],
+                fontSize=16,
+                spaceAfter=12,
+                textColor=colors.darkblue
+            )
+            
+            # Build content
+            story = []
+            
+            # Title
+            story.append(Paragraph("Vulnerability Scan Report", title_style))
+            story.append(Spacer(1, 12))
+            
+            # Scan information
+            scan = scan_data['scan']
+            customer = scan_data['customer']
+            
+            scan_info = [
+                ['Scan Name:', scan.get('name', 'N/A')],
+                ['Target:', scan.get('target', 'N/A')],
+                ['Scan Type:', scan.get('scan_type', 'N/A')],
+                ['Status:', scan.get('status', 'N/A')],
+                ['Created:', scan.get('created_at', 'N/A')],
+                ['Completed:', scan.get('completed_at', 'N/A')],
+            ]
+            
+            if customer:
+                scan_info.extend([
+                    ['Customer:', customer.get('name', 'N/A')],
+                    ['Organization:', customer.get('organization', 'N/A')],
+                    ['Email:', customer.get('email', 'N/A')]
                 ])
             
-            port_table = Table(port_data, colWidths=[0.8*inch, 0.8*inch, 0.8*inch, 1.5*inch, 2*inch])
-            port_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
+            scan_info.append(['Report Generated:', scan_data.get('generated_at', 'N/A')])
+            
+            scan_table = Table(scan_info, colWidths=[2*inch, 4*inch])
+            scan_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('BACKGROUND', (1, 0), (1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             
-            story.append(port_table)
+            story.append(scan_table)
             story.append(Spacer(1, 20))
-        
-        # Vulnerabilities section
-        vulnerabilities = scan_data.get('vulnerabilities', [])
-        if vulnerabilities:
-            story.append(Paragraph("Vulnerabilities", heading_style))
             
-            vuln_data = [['CVE ID', 'Severity', 'Title', 'CVSS Score']]
-            for vuln in vulnerabilities:
-                vuln_data.append([
-                    vuln.get('cve_id', 'N/A'),
-                    vuln.get('severity', 'N/A'),
-                    vuln.get('title', 'N/A')[:50] + '...' if len(vuln.get('title', '')) > 50 else vuln.get('title', 'N/A'),
-                    str(vuln.get('cvss_score', 'N/A'))
-                ])
+            # Ports section
+            ports = scan_data.get('ports', [])
+            if ports:
+                story.append(Paragraph("Open Ports", heading_style))
+                
+                port_data = [['Port', 'Protocol', 'State', 'Service', 'Version']]
+                for port in ports:
+                    port_data.append([
+                        str(port.get('port_number', '')),
+                        port.get('protocol', ''),
+                        port.get('state', ''),
+                        port.get('service', ''),
+                        port.get('version', '')
+                    ])
+                
+                port_table = Table(port_data, colWidths=[0.8*inch, 0.8*inch, 0.8*inch, 1.5*inch, 2*inch])
+                port_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                
+                story.append(port_table)
+                story.append(Spacer(1, 20))
             
-            vuln_table = Table(vuln_data, colWidths=[1.2*inch, 0.8*inch, 3*inch, 0.8*inch])
-            vuln_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
+            # Vulnerabilities section
+            vulnerabilities = scan_data.get('vulnerabilities', [])
+            if vulnerabilities:
+                story.append(Paragraph("Vulnerabilities", heading_style))
+                
+                vuln_data = [['CVE ID', 'Severity', 'Title', 'CVSS Score']]
+                for vuln in vulnerabilities:
+                    vuln_data.append([
+                        vuln.get('cve_id', 'N/A'),
+                        vuln.get('severity', 'N/A'),
+                        vuln.get('title', 'N/A')[:50] + '...' if len(vuln.get('title', '')) > 50 else vuln.get('title', 'N/A'),
+                        str(vuln.get('cvss_score', 'N/A'))
+                    ])
+                
+                vuln_table = Table(vuln_data, colWidths=[1.2*inch, 0.8*inch, 3*inch, 0.8*inch])
+                vuln_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                
+                story.append(vuln_table)
+                story.append(Spacer(1, 20))
             
-            story.append(vuln_table)
-            story.append(Spacer(1, 20))
-        
-        # Compliance issues section
-        compliance_issues = scan_data.get('compliance_issues', [])
-        if compliance_issues:
-            story.append(Paragraph("Compliance Issues", heading_style))
+            # Compliance issues section
+            compliance_issues = scan_data.get('compliance_issues', [])
+            if compliance_issues:
+                story.append(Paragraph("Compliance Issues", heading_style))
+                
+                comp_data = [['Category', 'Severity', 'Description']]
+                for issue in compliance_issues:
+                    comp_data.append([
+                        issue.get('category', 'N/A'),
+                        issue.get('severity', 'N/A'),
+                        issue.get('description', 'N/A')[:60] + '...' if len(issue.get('description', '')) > 60 else issue.get('description', 'N/A')
+                    ])
+                
+                comp_table = Table(comp_data, colWidths=[1.5*inch, 0.8*inch, 3.5*inch])
+                comp_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                
+                story.append(comp_table)
             
-            comp_data = [['Category', 'Severity', 'Description']]
-            for issue in compliance_issues:
-                comp_data.append([
-                    issue.get('category', 'N/A'),
-                    issue.get('severity', 'N/A'),
-                    issue.get('description', 'N/A')[:60] + '...' if len(issue.get('description', '')) > 60 else issue.get('description', 'N/A')
-                ])
+            # Build PDF
+            doc.build(story)
+            buffer.seek(0)
+            return buffer.getvalue()
             
-            comp_table = Table(comp_data, colWidths=[1.5*inch, 0.8*inch, 3.5*inch])
-            comp_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            
-            story.append(comp_table)
-        
-        # Build PDF
-        doc.build(story)
-        buffer.seek(0)
-        return buffer.getvalue()
+        except Exception as e:
+            logger.error(f"ReportLab error: {str(e)}")
+            raise
 
     def _generate_html_report(self, scan_data):
         """Generate HTML content for WeasyPrint"""
