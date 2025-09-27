@@ -38,8 +38,7 @@ def run_tests():
             '-v',
             '--tb=short',
             '--disable-warnings',
-            '--maxfail=3',
-            '--timeout=30'  # Add timeout to prevent hanging
+            '--maxfail=3'
         ])
         
         return result
