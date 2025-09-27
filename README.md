@@ -39,7 +39,7 @@ A comprehensive, modular Python web application for vulnerability scanning with 
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone <https://github.com/axxaxaxx/vulnerabilityScannerWebApp.git>
    cd vuln_scanner_webapp
    ```
 
@@ -306,3 +306,4 @@ For support and questions:
 - PDF report generation
 - Background task processing
 - Comprehensive test suite
+
