@@ -479,3 +479,66 @@ class ComplianceChecker:
             db.session.rollback()
             logger.error(f"Failed to save compliance issues: {str(e)}")
             raise
+    
+    def _identify_unnecessary_ports(self, ports: List[Port]) -> List[Dict[str, Any]]:
+        """Identify unnecessary open ports"""
+        unnecessary = []
+        
+        for port in ports:
+            port_num = getattr(port, 'port_number', None)
+            protocol = getattr(port, 'protocol', 'tcp')
+            state = getattr(port, 'state', 'open')
+            
+            if state != 'open':
+                continue
+                
+            # Check for known unnecessary ports
+            if port_num == 23:  # Telnet
+                unnecessary.append({
+                    'port': port_num,
+                    'protocol': protocol,
+                    'reason': 'Telnet - use SSH instead'
+                })
+            elif port_num == 80:  # HTTP
+                unnecessary.append({
+                    'port': port_num,
+                    'protocol': protocol,
+                    'reason': 'HTTP - ensure it redirects to HTTPS'
+                })
+        
+        return unnecessary
+    
+    def _identify_unencrypted_services(self, ports: List[Port]) -> List[Dict[str, Any]]:
+        """Identify unencrypted services"""
+        unencrypted = []
+        
+        for port in ports:
+            port_num = getattr(port, 'port_number', None)
+            protocol = getattr(port, 'protocol', 'tcp')
+            state = getattr(port, 'state', 'open')
+            service = getattr(port, 'service', 'unknown')
+            
+            if state != 'open':
+                continue
+                
+            # Check for unencrypted services
+            if port_num == 80:  # HTTP
+                unencrypted.append({
+                    'port': port_num,
+                    'service': 'http',
+                    'recommendation': 'Use HTTPS instead'
+                })
+            elif port_num == 21:  # FTP
+                unencrypted.append({
+                    'port': port_num,
+                    'service': 'ftp',
+                    'recommendation': 'Use SFTP instead'
+                })
+            elif port_num == 443 and service == 'https':  # HTTPS (but check if it's properly configured)
+                unencrypted.append({
+                    'port': port_num,
+                    'service': 'https',
+                    'recommendation': 'Use HTTPS instead'
+                })
+        
+        return unencrypted

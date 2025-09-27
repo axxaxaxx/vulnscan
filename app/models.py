@@ -2,7 +2,7 @@
 Database models for the vulnerability scanner application
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from app import db
 from sqlalchemy.dialects.postgresql import JSON
 import json
@@ -15,8 +15,8 @@ class Customer(db.Model):
     name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     organization = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     scans = db.relationship('Scan', backref='customer', lazy=True, cascade='all, delete-orphan')
@@ -44,8 +44,8 @@ class Scan(db.Model):
     progress = db.Column(db.Integer, default=0)  # 0-100
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     # Scan configuration
     nmap_options = db.Column(db.Text)  # JSON string of nmap options
@@ -121,8 +121,8 @@ class Vulnerability(db.Model):
     exploit_reference = db.Column(db.String(500))
     remediation = db.Column(db.Text)
     status = db.Column(db.String(20), default='open')  # open, in_progress, resolved, false_positive
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     def to_dict(self):
         return {
@@ -155,8 +155,8 @@ class ComplianceIssue(db.Model):
     severity = db.Column(db.String(20), nullable=False)  # critical, high, medium, low
     recommendation = db.Column(db.Text)
     status = db.Column(db.String(20), default='open')  # open, in_progress, resolved
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     def to_dict(self):
         return {

@@ -314,7 +314,8 @@ run_tests() {
     python test_sqlalchemy_compatibility.py
     
     if command_exists pytest; then
-        pytest tests/ -v --tb=short
+        print_status "Running comprehensive test suite..."
+        python run_tests.py
         print_success "Tests completed"
     else
         print_warning "pytest not found, skipping unit tests"

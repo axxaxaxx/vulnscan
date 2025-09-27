@@ -35,6 +35,7 @@ def sample_customer(app):
         )
         db.session.add(customer)
         db.session.commit()
+        db.session.refresh(customer)  # Refresh to ensure object is attached
         return customer
 
 @pytest.fixture
@@ -50,6 +51,7 @@ def sample_scan(app, sample_customer):
         )
         db.session.add(scan)
         db.session.commit()
+        db.session.refresh(scan)  # Refresh to ensure object is attached
         return scan
 
 def test_get_customers(client):
