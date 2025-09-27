@@ -12,8 +12,9 @@ try:
     from weasyprint import HTML, CSS
     from weasyprint.text.fonts import FontConfiguration
     WEASYPRINT_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError) as e:
     WEASYPRINT_AVAILABLE = False
+    WEASYPRINT_ERROR = str(e)
 
 try:
     from reportlab.lib.pagesizes import letter, A4
@@ -39,11 +40,21 @@ class PDFGenerator:
         
         if WEASYPRINT_AVAILABLE:
             self.available_engines.append('weasyprint')
+        else:
+            logger.warning(f"WeasyPrint not available: {WEASYPRINT_ERROR if 'WEASYPRINT_ERROR' in globals() else 'Import failed'}")
+        
         if REPORTLAB_AVAILABLE:
             self.available_engines.append('reportlab')
         
         if not self.available_engines:
-            raise Exception("No PDF generation engines available. Install weasyprint or reportlab.")
+            error_msg = "No PDF generation engines available. "
+            if not WEASYPRINT_AVAILABLE and not REPORTLAB_AVAILABLE:
+                error_msg += "Install weasyprint (with system dependencies) or reportlab."
+            elif not WEASYPRINT_AVAILABLE:
+                error_msg += f"WeasyPrint failed: {WEASYPRINT_ERROR if 'WEASYPRINT_ERROR' in globals() else 'Import failed'}. Install system dependencies or use reportlab."
+            else:
+                error_msg += "Install reportlab."
+            raise Exception(error_msg)
         
         logger.info(f"PDF generation engines available: {', '.join(self.available_engines)}")
     

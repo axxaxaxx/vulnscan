@@ -164,6 +164,43 @@ pip install -r requirements.txt
 pip install flask flask-sqlalchemy flask-socketio celery redis python-nmap beautifulsoup4
 ```
 
+### 9. WeasyPrint Issues
+
+#### Error: `WeasyPrint could not import some external libraries` or `OSError: cannot load library 'pango-1.0-0'`
+
+**Solution:**
+```bash
+# Run the WeasyPrint fix script
+chmod +x fix_weasyprint.sh
+./fix_weasyprint.sh
+
+# Or install manually:
+
+# On Ubuntu/Debian:
+sudo apt-get update
+sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info libcairo2 libcairo-gobject2 libpango1.0-0 libpangocairo-1.0-0 python3-dev libxml2-dev libxslt1-dev zlib1g-dev
+
+# On CentOS/RHEL/Fedora:
+sudo yum install -y pango gdk-pixbuf2 libffi-devel shared-mime-info cairo cairo-gobject pango-devel python3-devel libxml2-devel libxslt-devel zlib-devel
+
+# On macOS:
+brew install pango gdk-pixbuf cairo libffi libxml2 libxslt
+
+# Then reinstall WeasyPrint
+pip uninstall -y weasyprint
+pip install weasyprint
+```
+
+#### Error: `No PDF generation engines available`
+
+**Solution:**
+The application will fall back to ReportLab if WeasyPrint is not available. To enable PDF generation:
+
+```bash
+# Install WeasyPrint dependencies (see above)
+# Or use ReportLab only by modifying requirements.txt
+```
+
 ## Debugging Steps
 
 ### 1. Check Installation

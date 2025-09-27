@@ -105,6 +105,49 @@ check_nmap() {
     fi
 }
 
+# Function to install WeasyPrint system dependencies
+install_weasyprint_deps() {
+    print_status "Installing WeasyPrint system dependencies..."
+    
+    if command_exists apt-get; then
+        # Ubuntu/Debian
+        sudo apt-get update && sudo apt-get install -y \
+            libpango-1.0-0 \
+            libpangoft2-1.0-0 \
+            libgdk-pixbuf2.0-0 \
+            libffi-dev \
+            shared-mime-info \
+            libcairo2 \
+            libcairo-gobject2 \
+            libgdk-pixbuf2.0-0 \
+            libpango1.0-0 \
+            libpangocairo-1.0-0 \
+            libgdk-pixbuf2.0-0 \
+            libffi-dev \
+            shared-mime-info
+        print_success "WeasyPrint dependencies installed"
+    elif command_exists yum; then
+        # CentOS/RHEL/Fedora
+        sudo yum install -y \
+            pango \
+            gdk-pixbuf2 \
+            libffi-devel \
+            shared-mime-info \
+            cairo \
+            cairo-gobject \
+            pango-devel
+        print_success "WeasyPrint dependencies installed"
+    elif command_exists brew; then
+        # macOS
+        brew install pango gdk-pixbuf cairo libffi
+        print_success "WeasyPrint dependencies installed"
+    else
+        print_warning "Cannot install WeasyPrint dependencies automatically. Please install them manually."
+        print_warning "Required packages: pango, gdk-pixbuf, cairo, libffi"
+        return 1
+    fi
+}
+
 # Function to setup Python virtual environment
 setup_virtualenv() {
     print_status "Setting up Python virtual environment..."
@@ -345,6 +388,9 @@ main() {
     if ! check_nmap; then
         print_warning "Nmap setup failed, but continuing..."
     fi
+    
+    # Install WeasyPrint dependencies
+    install_weasyprint_deps
     
     # Setup Python environment
     setup_virtualenv

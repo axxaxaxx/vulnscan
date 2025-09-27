@@ -342,6 +342,35 @@ For support and questions:
 - Check the documentation
 - Review the test files for usage examples
 
+## Troubleshooting
+
+### Common Issues
+
+#### WeasyPrint Import Error
+If you get WeasyPrint import errors like `OSError: cannot load library 'pango-1.0-0'`, run the fix script:
+```bash
+chmod +x fix_weasyprint.sh
+./fix_weasyprint.sh
+```
+
+#### Alternative: Use Minimal Requirements
+If WeasyPrint continues to cause issues, use the minimal requirements:
+```bash
+pip install -r requirements-minimal.txt
+```
+
+### General Troubleshooting
+
+If you encounter other issues:
+
+1. **Check logs** in the `logs/` directory
+2. **Verify dependencies** are installed correctly
+3. **Check Redis** is running: `redis-cli ping`
+4. **Check Python version**: `python3 --version` (should be 3.8+)
+5. **Check Nmap**: `nmap --version`
+
+For detailed troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 ## Changelog
 
 ### Version 1.0.0
