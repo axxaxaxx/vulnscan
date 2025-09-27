@@ -235,6 +235,26 @@ python3 -c "from app.tasks.scan_tasks import celery; print(celery)"
 
 The Celery instance is now properly defined in `app/tasks/scan_tasks.py` and imported where needed.
 
+### 11. SQLAlchemy 2.0 Compatibility Issues
+
+#### Error: `'Engine' object has no attribute 'execute'`
+
+**Solution:**
+This error occurs when using SQLAlchemy 2.0+ with old API syntax. The fix is already included in the current code:
+
+```bash
+# Test SQLAlchemy compatibility
+python test_sqlalchemy_compatibility.py
+
+# Test database connection
+python test_installation.py
+```
+
+**Key Changes for SQLAlchemy 2.0:**
+- Use `connection.execute(db.text('SELECT 1'))` instead of `engine.execute('SELECT 1')`
+- Use `select()` statements instead of `session.query()`
+- Use `session.execute()` for queries
+
 ## Debugging Steps
 
 ### 1. Check Installation
@@ -244,6 +264,9 @@ python test_installation.py
 
 # Test Celery imports specifically
 python test_celery_import.py
+
+# Test SQLAlchemy 2.0 compatibility
+python test_sqlalchemy_compatibility.py
 ```
 
 ### 2. Check Environment

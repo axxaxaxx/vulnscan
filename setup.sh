@@ -309,6 +309,10 @@ run_tests() {
     print_status "Running installation test..."
     python test_installation.py
     
+    # Run SQLAlchemy compatibility test
+    print_status "Running SQLAlchemy compatibility test..."
+    python test_sqlalchemy_compatibility.py
+    
     if command_exists pytest; then
         pytest tests/ -v --tb=short
         print_success "Tests completed"

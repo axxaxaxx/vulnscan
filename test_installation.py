@@ -93,7 +93,8 @@ def test_database_connection():
         
         with app.app_context():
             # Test database connection
-            db.engine.execute('SELECT 1')
+            with db.engine.connect() as connection:
+                connection.execute(db.text('SELECT 1'))
             print("✓ Database connection successful")
             
             # Test table creation
