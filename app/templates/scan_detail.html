@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+
+{% block title %}{{ scan.name }} - Vulnerability Scanner{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="md:flex md:items-center md:justify-between">
+        <div class="flex-1 min-w-0">
+            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                {{ scan.name }}
+            </h2>
+            <div class="mt-1 flex flex-col sm:flex-row sm:flex-wrap sm:mt-0 sm:space-x-6">
+                <div class="mt-2 flex items-center text-sm text-gray-500">
+                    <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    {{ scan.target }}
+                </div>
+                <div class="mt-2 flex items-center text-sm text-gray-500">
+                    <svg class="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    {{ customer.name if customer else 'Unknown Customer' }}
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4">
+            {% if scan.status == 'completed' %}
+            <button onclick="generateReport()" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Generate Report
+            </button>
+            {% endif %}
+            {% if scan.status == 'running' %}
+            <button onclick="stopScan()" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                Stop Scan
+            </button>
+            {% elif scan.status == 'pending' %}
+            <button onclick="startScan()" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                Start Scan
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Status and Progress -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <div>
+                <h3 class="text-lg font-medium text-gray-900">Status</h3>
+                <div class="mt-2">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        {% if scan.status == 'completed' %}bg-green-100 text-green-800
+                        {% elif scan.status == 'running' %}bg-blue-100 text-blue-800
+                        {% elif scan.status == 'failed' %}bg-red-100 text-red-800
+                        {% elif scan.status == 'cancelled' %}bg-gray-100 text-gray-800
+                        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                        {{ scan.status.title() }}
+                    </span>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-lg font-medium text-gray-900">Progress</h3>
+                <div class="mt-2">
+                    {% if scan.status == 'running' %}
+                    <div class="flex items-center">
+                        <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{ scan.progress }}%"></div>
+                        </div>
+                        <span class="text-sm text-gray-600">{{ scan.progress }}%</span>
+                    </div>
+                    {% else %}
+                    <span class="text-sm text-gray-500">-</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <h3 class="text-lg font-medium text-gray-900">Created</h3>
+                <div class="mt-2 text-sm text-gray-500">{{ formatDate(scan.created_at) }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Vulnerability Summary -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Vulnerability Summary</h3>
+            <div class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-5">
+                <div class="bg-red-50 overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-red-500 truncate">Critical</dt>
+                                    <dd class="text-lg font-medium text-red-900">{{ vuln_by_severity.critical|length }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-orange-50 overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-orange-500 truncate">High</dt>
+                                    <dd class="text-lg font-medium text-orange-900">{{ vuln_by_severity.high|length }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-yellow-50 overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-yellow-500 truncate">Medium</dt>
+                                    <dd class="text-lg font-medium text-yellow-900">{{ vuln_by_severity.medium|length }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-green-50 overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-green-500 truncate">Low</dt>
+                                    <dd class="text-lg font-medium text-green-900">{{ vuln_by_severity.low|length }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-blue-50 overflow-hidden shadow rounded-lg">
+                    <div class="p-5">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-blue-500 truncate">Info</dt>
+                                    <dd class="text-lg font-medium text-blue-900">{{ vuln_by_severity.info|length }}</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button onclick="showTab('vulnerabilities')" id="vulnerabilities-tab" class="tab-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600">
+                    Vulnerabilities ({{ vulnerabilities|length }})
+                </button>
+                <button onclick="showTab('ports')" id="ports-tab" class="tab-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    Open Ports ({{ ports|length }})
+                </button>
+                <button onclick="showTab('compliance')" id="compliance-tab" class="tab-button whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    Compliance Issues ({{ compliance_issues|length }})
+                </button>
+            </nav>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="p-6">
+            <!-- Vulnerabilities Tab -->
+            <div id="vulnerabilities-content" class="tab-content">
+                {% if vulnerabilities %}
+                <div class="space-y-4">
+                    {% for vuln in vulnerabilities %}
+                    <div class="border border-gray-200 rounded-lg p-4 {{ getSeverityBgClass(vuln.severity) }}">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h4 class="text-lg font-medium {{ getSeverityClass(vuln.severity) }}">{{ vuln.title }}</h4>
+                                {% if vuln.cve_id %}
+                                <p class="text-sm text-gray-600 mt-1">CVE: {{ vuln.cve_id }}</p>
+                                {% endif %}
+                                {% if vuln.cvss_score %}
+                                <p class="text-sm text-gray-600">CVSS Score: {{ vuln.cvss_score }}</p>
+                                {% endif %}
+                                <p class="text-sm text-gray-700 mt-2">{{ vuln.description or 'No description available' }}</p>
+                                {% if vuln.remediation %}
+                                <div class="mt-3">
+                                    <h5 class="text-sm font-medium text-gray-900">Remediation:</h5>
+                                    <p class="text-sm text-gray-700 mt-1">{{ vuln.remediation }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="ml-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if vuln.status == 'open' %}bg-red-100 text-red-800
+                                    {% elif vuln.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                                    {% elif vuln.status == 'resolved' %}bg-green-100 text-green-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ vuln.status.replace('_', ' ').title() }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No vulnerabilities found</h3>
+                    <p class="mt-1 text-sm text-gray-500">This scan did not identify any vulnerabilities.</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Ports Tab -->
+            <div id="ports-content" class="tab-content hidden">
+                {% if ports %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Port</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Protocol</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">State</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Version</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for port in ports %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ port.port_number }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ port.protocol.upper() }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                        {% if port.state == 'open' %}bg-green-100 text-green-800
+                                        {% elif port.state == 'closed' %}bg-red-100 text-red-800
+                                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                        {{ port.state.title() }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ port.service or 'Unknown' }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ port.version or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No ports found</h3>
+                    <p class="mt-1 text-sm text-gray-500">This scan did not identify any open ports.</p>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Compliance Tab -->
+            <div id="compliance-content" class="tab-content hidden">
+                {% if compliance_issues %}
+                <div class="space-y-4">
+                    {% for issue in compliance_issues %}
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h4 class="text-lg font-medium text-gray-900">{{ issue.nist_control }}: {{ issue.control_title }}</h4>
+                                <p class="text-sm text-gray-600 mt-1">Severity: {{ issue.severity.title() }}</p>
+                                <p class="text-sm text-gray-700 mt-2">{{ issue.issue_description }}</p>
+                                {% if issue.recommendation %}
+                                <div class="mt-3">
+                                    <h5 class="text-sm font-medium text-gray-900">Recommendation:</h5>
+                                    <p class="text-sm text-gray-700 mt-1">{{ issue.recommendation }}</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="ml-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if issue.status == 'open' %}bg-red-100 text-red-800
+                                    {% elif issue.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                                    {% elif issue.status == 'resolved' %}bg-green-100 text-green-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ issue.status.replace('_', ' ').title() }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No compliance issues found</h3>
+                    <p class="mt-1 text-sm text-gray-500">This scan did not identify any NIST compliance issues.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Tab functionality
+    function showTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+        });
+        
+        // Remove active class from all tabs
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.classList.remove('border-blue-500', 'text-blue-600');
+            button.classList.add('border-transparent', 'text-gray-500');
+        });
+        
+        // Show selected tab content
+        document.getElementById(tabName + '-content').classList.remove('hidden');
+        
+        // Add active class to selected tab
+        const activeTab = document.getElementById(tabName + '-tab');
+        activeTab.classList.remove('border-transparent', 'text-gray-500');
+        activeTab.classList.add('border-blue-500', 'text-blue-600');
+    }
+    
+    // Scan actions
+    function startScan() {
+        fetch(`/scan/{{ scan.id }}/start`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.error) {
+                showNotification(result.error, 'error');
+            } else {
+                showNotification('Scan started successfully', 'success');
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error starting scan:', error);
+            showNotification('Error starting scan', 'error');
+        });
+    }
+    
+    function stopScan() {
+        if (confirm('Are you sure you want to stop this scan?')) {
+            fetch(`/scan/{{ scan.id }}/stop`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    showNotification(result.error, 'error');
+                } else {
+                    showNotification('Scan stopped successfully', 'success');
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error stopping scan:', error);
+                showNotification('Error stopping scan', 'error');
+            });
+        }
+    }
+    
+    function generateReport() {
+        fetch(`/report/{{ scan.id }}/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.error) {
+                showNotification(result.error, 'error');
+            } else {
+                showNotification('Report generated successfully', 'success');
+                // Open download link
+                window.open(result.download_url, '_blank');
+            }
+        })
+        .catch(error => {
+            console.error('Error generating report:', error);
+            showNotification('Error generating report', 'error');
+        });
+    }
+    
+    // Join scan room for real-time updates
+    socket.emit('join_scan', { scan_id: {{ scan.id }} });
+    
+    // Handle scan updates
+    socket.on('scan_update', function(data) {
+        console.log('Scan update received:', data);
+        // Update progress bar if running
+        if (data.task_type && data.progress !== undefined) {
+            const progressBar = document.querySelector('.bg-blue-600');
+            if (progressBar) {
+                progressBar.style.width = data.progress + '%';
+            }
+        }
+    });
+    
+    socket.on('scan_progress', function(data) {
+        console.log('Scan progress received:', data);
+        // Update progress display
+        if (data.progress !== undefined) {
+            const progressBar = document.querySelector('.bg-blue-600');
+            const progressText = document.querySelector('.text-gray-600');
+            if (progressBar) {
+                progressBar.style.width = data.progress + '%';
+            }
+            if (progressText) {
+                progressText.textContent = data.progress + '%';
+            }
+        }
+    });
+    
+    // Auto-refresh if scan is running
+    {% if scan.status == 'running' %}
+    setInterval(() => {
+        fetch(`/scan/{{ scan.id }}/status`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'running') {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking scan status:', error);
+            });
+    }, 5000);
+    {% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://vulnscanner:vulnscanner@db:5432/vulnscanner
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+    networks:
+      - vulnscanner-network
+
+  worker:
+    build: .
+    command: celery -A app.celery worker --loglevel=info
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://vulnscanner:vulnscanner@db:5432/vulnscanner
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+    networks:
+      - vulnscanner-network
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_DB=vulnscanner
+      - POSTGRES_USER=vulnscanner
+      - POSTGRES_PASSWORD=vulnscanner
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vulnscanner-network
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vulnscanner-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+    networks:
+      - vulnscanner-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  vulnscanner-network:
+    driver: bridge
