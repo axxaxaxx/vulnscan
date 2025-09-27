@@ -50,7 +50,21 @@ def index():
     except Exception as e:
         logger.error(f"Error loading dashboard: {str(e)}")
         flash('Error loading dashboard', 'error')
-        return render_template('index.html')
+        # Provide default values to avoid template errors
+        return render_template('index.html',
+                             recent_scans=[],
+                             total_scans=0,
+                             total_customers=0,
+                             total_vulnerabilities=0,
+                             total_compliance_issues=0,
+                             vuln_counts={
+                                 'critical': 0,
+                                 'high': 0,
+                                 'medium': 0,
+                                 'low': 0,
+                                 'info': 0
+                             },
+                             recent_logs=[])
 
 @main_bp.route('/scans')
 def scans():

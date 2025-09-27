@@ -4,206 +4,114 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Vulnerability Scanner{% endblock %}</title>
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Socket.IO -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    
-    <!-- Custom CSS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
+        .sidebar-active {
+            background-color: #3b82f6;
+            color: white;
         }
-        
-        .fade-in {
-            animation: fadeIn 0.3s ease-in;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .severity-critical { color: #dc2626; }
-        .severity-high { color: #ea580c; }
-        .severity-medium { color: #d97706; }
-        .severity-low { color: #16a34a; }
-        .severity-info { color: #2563eb; }
-        
-        .bg-severity-critical { background-color: #fef2f2; }
-        .bg-severity-high { background-color: #fff7ed; }
-        .bg-severity-medium { background-color: #fffbeb; }
-        .bg-severity-low { background-color: #f0fdf4; }
-        .bg-severity-info { background-color: #eff6ff; }
     </style>
-    
-    {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="{{ url_for('main.index') }}" class="flex-shrink-0 flex items-center">
-                        <span class="text-2xl font-bold text-blue-600">VulnScanner</span>
-                    </a>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <a href="{{ url_for('main.index') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                        Dashboard
-                    </a>
-                    <a href="{{ url_for('main.scans') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                        Scans
-                    </a>
-                    <a href="{{ url_for('main.customers') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                        Customers
-                    </a>
-                    <a href="{{ url_for('main.reports') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                        Reports
-                    </a>
-                    <a href="{{ url_for('main.monitoring') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
-                        Monitoring
-                    </a>
-                </div>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="bg-white shadow-lg w-64">
+            <div class="p-6">
+                <h1 class="text-xl font-bold text-gray-800">Vuln Scanner</h1>
             </div>
+            <nav class="mt-6">
+                <a href="/" class="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100 sidebar-active">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"></path>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="/scans" class="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Scans
+                </a>
+                <a href="/customers" class="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    Customers
+                </a>
+                <a href="/reports" class="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Reports
+                </a>
+                <a href="/monitoring" class="flex items-center px-6 py-3 text-gray-700 hover:bg-gray-100">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    Monitoring
+                </a>
+            </nav>
         </div>
-    </nav>
-    
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="notification">
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} fade-in mb-2 p-4 rounded-lg shadow-lg">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0">
-                                {% if category == 'error' %}
-                                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                                    </svg>
-                                {% elif category == 'success' %}
-                                    <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                    </svg>
-                                {% else %}
-                                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                                    </svg>
-                                {% endif %}
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm font-medium text-gray-800">{{ message }}</p>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Top Bar -->
+            <header class="bg-white shadow-sm border-b border-gray-200">
+                <div class="px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <h1 class="text-2xl font-semibold text-gray-900">{% block page_title %}Dashboard{% endblock %}</h1>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative">
+                                <button class="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <span class="sr-only">Open user menu</span>
+                                    <div class="h-8 w-8 rounded-full bg-gray-300"></div>
+                                </button>
                             </div>
                         </div>
                     </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-    
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {% block content %}{% endblock %}
-    </main>
-    
-    <!-- Notification Container -->
-    <div id="notification-container" class="notification"></div>
-    
-    <!-- JavaScript -->
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
+                <div class="container mx-auto px-6 py-8">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="mb-4 p-4 rounded-md {% if category == 'error' %}bg-red-50 border border-red-200 text-red-700{% else %}bg-green-50 border border-green-200 text-green-700{% endif %}">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
     <script>
-        // Initialize Socket.IO
+        // Socket.IO connection
         const socket = io();
         
-        // Notification system
-        function showNotification(message, type = 'info', duration = 5000) {
-            const container = document.getElementById('notification-container');
-            const notification = document.createElement('div');
-            
-            const bgColor = type === 'error' ? 'bg-red-100' : 
-                           type === 'success' ? 'bg-green-100' : 
-                           type === 'warning' ? 'bg-yellow-100' : 'bg-blue-100';
-            
-            const textColor = type === 'error' ? 'text-red-800' : 
-                             type === 'success' ? 'text-green-800' : 
-                             type === 'warning' ? 'text-yellow-800' : 'text-blue-800';
-            
-            notification.className = `fade-in mb-2 p-4 rounded-lg shadow-lg ${bgColor} ${textColor}`;
-            notification.innerHTML = `
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium">${message}</p>
-                    </div>
-                </div>
-            `;
-            
-            container.appendChild(notification);
-            
-            // Auto-remove after duration
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, duration);
-        }
-        
-        // Socket.IO event handlers
-        socket.on('connect', function() {
-            console.log('Connected to server');
-        });
-        
-        socket.on('scan_complete_notification', function(data) {
-            showNotification(`Scan completed: ${data.scan_name} (${data.target})`, 'success');
-        });
-        
+        // Handle real-time updates
         socket.on('scan_update', function(data) {
             console.log('Scan update:', data);
+            // Update UI based on scan progress
+            if (data.status === 'completed') {
+                location.reload();
+            }
         });
         
-        socket.on('scan_progress', function(data) {
-            console.log('Scan progress:', data);
+        socket.on('system_log', function(data) {
+            console.log('System log:', data);
+            // Update system logs in real-time
         });
-        
-        // Utility functions
-        function formatDate(dateString) {
-            return new Date(dateString).toLocaleString();
-        }
-        
-        function getSeverityClass(severity) {
-            return `severity-${severity}`;
-        }
-        
-        function getSeverityBgClass(severity) {
-            return `bg-severity-${severity}`;
-        }
-        
-        // Auto-hide flash messages
-        setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                alert.style.opacity = '0';
-                setTimeout(() => {
-                    if (alert.parentNode) {
-                        alert.parentNode.removeChild(alert);
-                    }
-                }, 300);
-            });
-        }, 5000);
     </script>
     
     {% block extra_js %}{% endblock %}
