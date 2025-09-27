@@ -226,6 +226,69 @@ class PDFGenerator:
                 story.append(vuln_table)
                 story.append(Spacer(1, 20))
             
+            # Searchsploit results section
+            searchsploit_results = scan_data.get('searchsploit_results', [])
+            if searchsploit_results:
+                story.append(Paragraph("Searchsploit Results", heading_style))
+                
+                sploit_data = [['Exploit ID', 'Title', 'Platform', 'Port']]
+                for result in searchsploit_results:
+                    sploit_data.append([
+                        result.get('exploit_id', 'N/A'),
+                        result.get('title', 'N/A')[:40] + '...' if len(result.get('title', '')) > 40 else result.get('title', 'N/A'),
+                        result.get('platform', 'N/A'),
+                        str(result.get('port', 'N/A'))
+                    ])
+                
+                sploit_table = Table(sploit_data, colWidths=[1.2*inch, 2.5*inch, 1*inch, 0.8*inch])
+                sploit_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                ]))
+                
+                story.append(sploit_table)
+                story.append(Spacer(1, 20))
+            
+            # OSINT results section
+            osint_results = scan_data.get('osint_results', {})
+            if osint_results:
+                story.append(Paragraph("OSINT Results", heading_style))
+                
+                for category, results in osint_results.items():
+                    if results:
+                        story.append(Paragraph(f"{category.title()} ({len(results)})", heading_style))
+                        
+                        osint_data = [['Source', 'Title', 'Confidence', 'URL']]
+                        for result in results:
+                            url = result.get('url', '')
+                            if len(url) > 30:
+                                url = url[:30] + '...'
+                            osint_data.append([
+                                result.get('source', 'N/A'),
+                                result.get('title', 'N/A')[:30] + '...' if len(result.get('title', '')) > 30 else result.get('title', 'N/A'),
+                                str(result.get('confidence', 'N/A')) + '%' if result.get('confidence') else 'N/A',
+                                url
+                            ])
+                        
+                        osint_table = Table(osint_data, colWidths=[1*inch, 1.5*inch, 0.8*inch, 2*inch])
+                        osint_table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0, 0), (-1, -1), 9),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                        ]))
+                        
+                        story.append(osint_table)
+                        story.append(Spacer(1, 15))
+            
             # Compliance issues section
             compliance_issues = scan_data.get('compliance_issues', [])
             if compliance_issues:
@@ -366,6 +429,77 @@ class PDFGenerator:
             html += """
                     </tbody>
                 </table>
+            </div>
+            """
+        
+        # Searchsploit results section
+        searchsploit_results = scan_data.get('searchsploit_results', [])
+        if searchsploit_results:
+            html += """
+            <div class="section">
+                <h2>Searchsploit Results</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Exploit ID</th>
+                            <th>Title</th>
+                            <th>Platform</th>
+                            <th>Port</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            """
+            for result in searchsploit_results:
+                html += f"""
+                        <tr>
+                            <td>{result.get('exploit_id', 'N/A')}</td>
+                            <td>{result.get('title', 'N/A')}</td>
+                            <td>{result.get('platform', 'N/A')}</td>
+                            <td>{result.get('port', 'N/A')}</td>
+                        </tr>
+                """
+            html += """
+                    </tbody>
+                </table>
+            </div>
+            """
+        
+        # OSINT results section
+        osint_results = scan_data.get('osint_results', {})
+        if osint_results:
+            html += """
+            <div class="section">
+                <h2>OSINT Results</h2>
+            """
+            for category, results in osint_results.items():
+                if results:
+                    html += f"""
+                    <h3>{category.title()} ({len(results)})</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>Title</th>
+                                <th>Confidence</th>
+                                <th>URL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    """
+                    for result in results:
+                        html += f"""
+                            <tr>
+                                <td>{result.get('source', 'N/A')}</td>
+                                <td>{result.get('title', 'N/A')}</td>
+                                <td>{result.get('confidence', 'N/A')}%</td>
+                                <td>{result.get('url', 'N/A')}</td>
+                            </tr>
+                        """
+                    html += """
+                        </tbody>
+                    </table>
+                    """
+            html += """
             </div>
             """
         

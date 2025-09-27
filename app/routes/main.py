@@ -214,6 +214,47 @@ def scan_types():
     """Scan types management page"""
     return render_template('scan_types.html')
 
+@main_bp.route('/scans/<int:scan_id>')
+def scan_detail(scan_id):
+    """Scan detail page"""
+    try:
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            flash('Scan not found', 'error')
+            return redirect(url_for('main.scans'))
+        
+        customer = Customer.query.get(scan.customer_id) if scan.customer_id else None
+        ports = Port.query.filter_by(scan_id=scan_id).all()
+        vulnerabilities = Vulnerability.query.filter_by(scan_id=scan_id).all()
+        compliance_issues = ComplianceIssue.query.filter_by(scan_id=scan_id).all()
+        
+        # Group vulnerabilities by severity
+        vuln_by_severity = {}
+        for vuln in vulnerabilities:
+            severity = vuln.severity or 'info'
+            if severity not in vuln_by_severity:
+                vuln_by_severity[severity] = []
+            vuln_by_severity[severity].append(vuln)
+        
+        # TODO: Add searchsploit and OSINT results when those modules are implemented
+        searchsploit_results = []  # Placeholder for searchsploit results
+        osint_results = {}  # Placeholder for OSINT results
+        
+        return render_template('scan_detail.html',
+                             scan=scan,
+                             customer=customer,
+                             ports=ports,
+                             vulnerabilities=vulnerabilities,
+                             vuln_by_severity=vuln_by_severity,
+                             compliance_issues=compliance_issues,
+                             searchsploit_results=searchsploit_results,
+                             osint_results=osint_results)
+    
+    except Exception as e:
+        logger.error(f"Error loading scan detail: {str(e)}")
+        flash('Error loading scan details', 'error')
+        return redirect(url_for('main.scans'))
+
 @main_bp.route('/reports')
 def reports():
     """Reports page"""

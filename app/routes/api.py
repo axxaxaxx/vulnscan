@@ -162,30 +162,39 @@ def api_create_scan():
     try:
         data = request.get_json()
         
-        if not data or not data.get('customer_id') or not data.get('target'):
-            return jsonify({'error': 'Customer ID and target are required'}), 400
+        if not data or not data.get('customer_id') or not data.get('target') or not data.get('scan_type_id'):
+            return jsonify({'error': 'Customer ID, target, and scan type are required'}), 400
         
         # Validate customer exists
         customer = Customer.query.get(data['customer_id'])
         if not customer:
             return jsonify({'error': 'Customer not found'}), 404
         
-        # Create scan
+        # Validate scan type exists
+        scan_type = ScanType.query.get(data['scan_type_id'])
+        if not scan_type:
+            return jsonify({'error': 'Scan type not found'}), 404
+        
+        # Create scan with scan type configuration
         scan = Scan(
             customer_id=data['customer_id'],
             name=data.get('name', f"Scan of {data['target']}"),
             target=data['target'],
-            scan_type=data.get('scan_type', 'comprehensive'),
-            nmap_options=json.dumps(data.get('nmap_options', {})),
-            enable_osint=data.get('enable_osint', False),
-            enable_cve_lookup=data.get('enable_cve_lookup', True),
-            enable_compliance_check=data.get('enable_compliance_check', True)
+            scan_type=scan_type.name,
+            nmap_options=json.dumps({
+                'arguments': scan_type.nmap_arguments,
+                'port_range_type': scan_type.port_range_type,
+                'custom_ports': scan_type.custom_ports
+            }),
+            enable_osint=scan_type.enable_osint,
+            enable_cve_lookup=scan_type.enable_cve_lookup,
+            enable_compliance_check=scan_type.enable_compliance_check
         )
         
         db.session.add(scan)
         db.session.commit()
         
-        logger.info(f"Created scan {scan.id} for target {scan.target}")
+        logger.info(f"Created scan {scan.id} for target {scan.target} using scan type {scan_type.name}")
         return jsonify(scan.to_dict()), 201
     
     except Exception as e:
@@ -716,6 +725,65 @@ def get_logs():
     except Exception as e:
         logger.error(f"Error getting logs: {str(e)}")
         return jsonify({'error': 'Failed to get logs'}), 500
+
+@api_bp.route('/scans/<int:scan_id>/export-pdf', methods=['POST'])
+def export_scan_pdf(scan_id):
+    """Export scan results as PDF"""
+    try:
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({'error': 'Scan not found'}), 404
+        
+        if scan.status != 'completed':
+            return jsonify({'error': 'Only completed scans can be exported to PDF'}), 400
+        
+        customer = Customer.query.get(scan.customer_id)
+        vulnerabilities = Vulnerability.query.filter_by(scan_id=scan_id).all()
+        ports = Port.query.filter_by(scan_id=scan_id).all()
+        compliance_issues = ComplianceIssue.query.filter_by(scan_id=scan_id).all()
+        
+        import os
+        reports_dir = os.path.join(current_app.root_path, '..', 'reports')
+        os.makedirs(reports_dir, exist_ok=True)
+        
+        pdf_generator = PDFGenerator()
+        
+        # TODO: Add searchsploit and OSINT results when those modules are implemented
+        searchsploit_results = []  # Placeholder for searchsploit results
+        osint_results = {}  # Placeholder for OSINT results
+        
+        scan_data = {
+            'scan': scan.to_dict(),
+            'customer': customer.to_dict() if customer else None,
+            'vulnerabilities': [vuln.to_dict() for vuln in vulnerabilities],
+            'ports': [port.to_dict() for port in ports],
+            'compliance_issues': [issue.to_dict() for issue in compliance_issues],
+            'searchsploit_results': searchsploit_results,
+            'osint_results': osint_results,
+            'generated_at': datetime.utcnow().isoformat()
+        }
+        
+        pdf_content = pdf_generator.generate_scan_report(scan_data)
+        
+        filename = f"scan_{scan_id}_{scan.name.replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filepath = os.path.join(reports_dir, filename)
+        
+        with open(filepath, 'wb') as f:
+            f.write(pdf_content)
+        
+        logger.info(f"Generated PDF report for scan {scan_id}: {filepath}")
+        
+        return Response(
+            pdf_content,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'application/pdf'
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating PDF for scan {scan_id}: {str(e)}")
+        return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
 
 # Scan Type API endpoints
 @api_bp.route('/scan-types', methods=['GET'])
