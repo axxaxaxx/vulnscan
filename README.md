@@ -29,54 +29,100 @@ A comprehensive, modular Python web application for vulnerability scanning with 
 
 ## Installation
 
-### Prerequisites
+### Quick Setup (Recommended)
+
+For first-time installation, use the automated setup script:
+
+```bash
+# Clone the repository
+git clone https://github.com/axxaxaxx/vulnerabilityScannerWebApp.git
+cd vulnerabilityScannerWebApp
+
+# Make setup script executable and run it
+chmod +x setup.sh
+./setup.sh
+```
+
+The setup script will automatically:
+- Check system requirements (Python 3.8+, Redis, Nmap)
+- Create a Python virtual environment
+- Install all dependencies
+- Set up environment variables
+- Initialize the database
+- Install Searchsploit (optional)
+- Run tests to verify installation
+- Create startup scripts
+
+After setup completes, start the application:
+```bash
+./start.sh
+```
+
+### Manual Setup
+
+If you prefer manual installation:
+
+#### Prerequisites
 - Python 3.8+
 - Redis server
 - Nmap
 - Searchsploit (optional)
 
-### Setup
+#### Steps
 
 1. **Clone the repository**
    ```bash
-   git clone <https://github.com/axxaxaxx/vulnerabilityScannerWebApp.git>
-   cd vuln_scanner_webapp
+   git clone https://github.com/axxaxaxx/vulnerabilityScannerWebApp.git
+   cd vulnerabilityScannerWebApp
    ```
 
-2. **Install dependencies**
+2. **Create virtual environment**
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Configure environment**
+4. **Configure environment**
    ```bash
    cp env.example .env
    # Edit .env with your configuration
    ```
 
-4. **Initialize database**
+5. **Initialize database**
    ```bash
    flask db init
    flask db migrate -m "Initial migration"
    flask db upgrade
    ```
 
-5. **Start Redis server**
+6. **Start Redis server**
    ```bash
    redis-server
    ```
 
-6. **Start Celery worker** (in separate terminal)
+7. **Start Celery worker** (in separate terminal)
    ```bash
    celery -A app.celery worker --loglevel=info
    ```
 
-7. **Start the application**
+8. **Start the application**
    ```bash
    python app.py
    ```
 
 The application will be available at `http://localhost:5000`.
+
+### Verify Installation
+
+Run the test script to verify everything is working:
+```bash
+python test_installation.py
+```
 
 ## Configuration
 
@@ -306,4 +352,3 @@ For support and questions:
 - PDF report generation
 - Background task processing
 - Comprehensive test suite
-

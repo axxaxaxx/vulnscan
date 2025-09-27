@@ -224,11 +224,15 @@ run_tests() {
     # Activate virtual environment
     source venv/bin/activate
     
+    # Run installation test first
+    print_status "Running installation test..."
+    python test_installation.py
+    
     if command_exists pytest; then
         pytest tests/ -v --tb=short
         print_success "Tests completed"
     else
-        print_warning "pytest not found, skipping tests"
+        print_warning "pytest not found, skipping unit tests"
     fi
 }
 
