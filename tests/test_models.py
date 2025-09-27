@@ -181,31 +181,39 @@ def test_compliance_issue_creation(app, sample_scan):
 def test_relationships(app, sample_customer, sample_scan):
     """Test model relationships"""
     with app.app_context():
+        # Reload objects within the app context to avoid DetachedInstanceError
+        customer = Customer.query.get(sample_customer.id)
+        scan = Scan.query.get(sample_scan.id)
+        
         # Test customer -> scans relationship
-        assert len(sample_customer.scans) == 1
-        assert sample_customer.scans[0].id == sample_scan.id
+        assert len(customer.scans) == 1
+        assert customer.scans[0].id == scan.id
         
         # Test scan -> customer relationship
-        assert sample_scan.customer.id == sample_customer.id
-        assert sample_scan.customer.name == sample_customer.name
+        assert scan.customer.id == customer.id
+        assert scan.customer.name == customer.name
 
 def test_cascade_delete(app, sample_customer, sample_scan):
     """Test cascade delete functionality"""
     with app.app_context():
+        # Reload objects within the app context
+        customer = Customer.query.get(sample_customer.id)
+        scan = Scan.query.get(sample_scan.id)
+        
         # Create related records
         vulnerability = Vulnerability(
-            scan_id=sample_scan.id,
+            scan_id=scan.id,
             title='Test Vulnerability',
             severity='high'
         )
         port = Port(
-            scan_id=sample_scan.id,
+            scan_id=scan.id,
             port_number=80,
             protocol='tcp',
             state='open'
         )
         compliance_issue = ComplianceIssue(
-            scan_id=sample_scan.id,
+            scan_id=scan.id,
             nist_control='PR.AC-1',
             control_title='Access Control',
             issue_description='Test issue',
@@ -216,7 +224,7 @@ def test_cascade_delete(app, sample_customer, sample_scan):
         db.session.commit()
         
         # Delete customer (should cascade to scans and related records)
-        db.session.delete(sample_customer)
+        db.session.delete(customer)
         db.session.commit()
         
         # Verify all related records are deleted

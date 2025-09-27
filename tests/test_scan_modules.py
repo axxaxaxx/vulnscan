@@ -34,9 +34,12 @@ class TestNmapScanner:
         mock_host.state.return_value = 'up'
         mock_host.all_protocols.return_value = ['tcp']
         
-        # Create a proper mock for tcp ports
-        mock_tcp = Mock()
-        mock_tcp.keys.return_value = [80, 443]
+        # Create a proper mock for tcp ports that supports item assignment
+        mock_tcp = {}
+        mock_tcp[80] = None  # Will be set later
+        mock_tcp[443] = None  # Will be set later
+        
+        # Configure the host mock to return the tcp dict
         mock_host.__getitem__ = Mock(return_value=mock_tcp)
         
         # Mock port info
@@ -46,8 +49,8 @@ class TestNmapScanner:
             'version': 'Apache/2.4.41',
             'banner': 'HTTP/1.1 200 OK'
         }
-        mock_host['tcp'][80] = mock_port_info
-        mock_host['tcp'][443] = mock_port_info
+        mock_tcp[80] = mock_port_info
+        mock_tcp[443] = mock_port_info
         
         mock_scanner.__getitem__.return_value = mock_host
         mock_portscanner.return_value = mock_scanner
