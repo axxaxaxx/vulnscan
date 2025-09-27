@@ -21,5 +21,15 @@ app, celery = create_app()
 
 if __name__ == '__main__':
     with app.app_context():
+        # Create database tables
         db.create_all()
+        
+        # Initialize default scan types
+        try:
+            from app.modules.scan_type_initializer import ensure_default_scan_types
+            ensure_default_scan_types()
+            print("✅ Default scan types initialized successfully!")
+        except Exception as e:
+            print(f"Warning: Could not initialize default scan types: {e}")
+    
     app.run(debug=True, host='0.0.0.0', port=5000)
